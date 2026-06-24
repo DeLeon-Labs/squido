@@ -4,22 +4,24 @@ The roadmap keeps Squido focused on publishing notes and tracking publish state.
 
 ## 0.1.0-alpha — Core publishing
 
-- Publish current note to GitHub
-- Single repo
-- Single target folder
-- Confirmation modal
-- Commit message template
-- Manifest tracking
-- Detect unpublished changes
+- Manual GitHub token authentication
+- Publish the current note to a single repository, branch, and target folder
+- First publish creates the remote file
+- Confirmation modal with optional commit message override
+- Automatic `Publish: {{title}}` message for first publish
+- Automatic `Update: {{title}}` message for republish
+- Manifest tracks the local path, owner/org, repository, branch, target path, published URL, GitHub file SHA, local content hash, timestamp, and status
+- Detect published notes with unpublished local changes
+- Republish an already-published note using the current GitHub file SHA
 - Handle rename/move/delete/modify events
 
 ## 0.2.0-alpha — Publishing management
 
-- Republish
 - Unpublish
-- Published URL tracking
 - Open published note
 - Improved status indicators
+- Clearer publish errors and recovery guidance
+- Evaluate Device Flow/OAuth as a later alternative to manual token entry
 
 ## 0.3.0-alpha — Folder publishing
 
@@ -39,7 +41,9 @@ The roadmap keeps Squido focused on publishing notes and tracking publish state.
 
 - Auto-publish on save
 - Auto-publish on move
-- Granular warnings
+- Optional auto-republish, off by default
+- Explicit warnings before enabling automation
+- Granular settings for triggers and affected notes
 - Dry-run mode
 
 ## 0.6.0-alpha — Lighthouse integration hooks
@@ -83,4 +87,3 @@ The roadmap keeps Squido focused on publishing notes and tracking publish state.
 - Ghost
 - WordPress
 - Other APIs if worthwhile
-

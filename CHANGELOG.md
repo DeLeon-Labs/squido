@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+
+- Documented the first-publish, local-change detection, and republish lifecycle.
+- Expanded the planned manifest contract to include destination identity and the GitHub file SHA.
+- Clarified generated publish/update messages, later auto-republish safeguards, and later Device Flow/OAuth planning.
+
 ## [0.1.0-alpha] - 2026-06-24
 
 ### Added
@@ -21,4 +27,3 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 [Unreleased]: https://github.com/DeLeon-Labs/squido/compare/0.1.0-alpha...HEAD
 [0.1.0-alpha]: https://github.com/DeLeon-Labs/squido/releases/tag/0.1.0-alpha
-
