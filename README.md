@@ -49,7 +49,13 @@ pnpm install
 pnpm run dev
 ```
 
-The development process watches `src/main.ts` and writes `main.js`. Copy or symlink `main.js`, `manifest.json`, and `styles.css` into `<vault>/.obsidian/plugins/squido/`, then enable Squido in Obsidian.
+The development process watches `src/main.ts` and writes the complete Obsidian runtime bundle to `dist/`. Point the test vault's plugin folder at that directory, then enable Squido in Obsidian:
+
+```sh
+ln -s /Users/jon/Developer/DeLeon-Labs/squido/dist "<test-vault>/.obsidian/plugins/squido"
+```
+
+The `dist/` folder contains exactly `main.js`, `manifest.json`, and `styles.css`. It is generated locally and is not committed. Obsidian's runtime `data.json` is also ignored.
 
 Before submitting changes, run:
 
@@ -63,4 +69,3 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution boundaries and [ROADMAP.
 ## License
 
 MIT © DeLeon Labs
-

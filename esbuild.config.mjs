@@ -1,8 +1,23 @@
 import esbuild from "esbuild";
 import process from "node:process";
 import { builtinModules } from "node:module";
+import { copyFile, mkdir, readdir, rm } from "node:fs/promises";
 
-const production = process.argv[2] === "production";
+const mode = process.argv[2];
+const production = mode === "production";
+const outputDirectory = "dist";
+const releaseFiles = ["main.js", "manifest.json", "styles.css"];
+
+if (mode === "clean") {
+  await rm(outputDirectory, { recursive: true, force: true });
+  process.exit(0);
+}
+
+await mkdir(outputDirectory, { recursive: true });
+await Promise.all([
+  copyFile("manifest.json", `${outputDirectory}/manifest.json`),
+  copyFile("styles.css", `${outputDirectory}/styles.css`),
+]);
 
 const context = await esbuild.context({
   banner: {
@@ -16,13 +31,16 @@ const context = await esbuild.context({
   logLevel: "info",
   sourcemap: production ? false : "inline",
   treeShaking: true,
-  outfile: "main.js",
+  outfile: `${outputDirectory}/main.js`,
 });
 
 if (production) {
   await context.rebuild();
   await context.dispose();
+  const builtFiles = (await readdir(outputDirectory)).sort();
+  if (builtFiles.join("\n") !== releaseFiles.sort().join("\n")) {
+    throw new Error(`Unexpected dist contents: ${builtFiles.join(", ")}`);
+  }
 } else {
   await context.watch();
 }
-

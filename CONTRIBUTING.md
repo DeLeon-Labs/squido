@@ -19,5 +19,4 @@ Squido is deliberately narrow. Contributions should make publishing selected not
 5. Test the affected workflow in an Obsidian vault using a disposable GitHub repository or branch.
 6. Open a pull request describing the behavior, manual test, and any security implications.
 
-Never commit GitHub tokens, vault content, plugin `data.json`, or generated `main.js` bundles.
-
+Never commit GitHub tokens, vault content, plugin `data.json`, or the generated `dist/` bundle.

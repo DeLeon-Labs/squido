@@ -1,6 +1,5 @@
 node_modules/
-main.js
-main.js.map
+dist/
+data.json
 *.log
 .DS_Store
-
