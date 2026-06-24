@@ -1,0 +1,27 @@
+{
+  "name": "squido",
+  "version": "0.1.0-alpha",
+  "description": "A lightweight Obsidian publishing layer for publishing selected notes directly to GitHub.",
+  "main": "main.js",
+  "type": "module",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc --noEmit && node esbuild.config.mjs production"
+  },
+  "keywords": [
+    "obsidian",
+    "github",
+    "publishing",
+    "markdown"
+  ],
+  "author": "DeLeon Labs",
+  "license": "MIT",
+  "packageManager": "pnpm@11.8.0",
+  "devDependencies": {
+    "@types/node": "^26.0.0",
+    "esbuild": "^0.28.1",
+    "obsidian": "^1.13.1",
+    "typescript": "^6.0.3"
+  }
+}
