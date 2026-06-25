@@ -15,13 +15,21 @@ The roadmap keeps Squido focused on publishing notes and tracking publish state.
 - Republish an already-published note using the current GitHub file SHA
 - Handle rename/move/delete/modify events
 
+## 0.1.1-alpha — Secure local authentication foundation
+
+- GitHub Device Flow authentication for local testing and alpha UX
+- Secure local credential storage; no plaintext tokens, app passwords, API keys, refresh tokens, or private keys in plugin data
+- Manual token fallback writes only to secure credential storage
+- Desktop-only credentialed publishing until a mobile secure-storage adapter exists
+- Provider authentication requirements documented before adding future integrations
+
 ## 0.2.0-alpha — Publishing management
 
+- Repository and folder picker for publish destination
 - Unpublish
 - Open published note
 - Improved status indicators
 - Clearer publish errors and recovery guidance
-- Evaluate Device Flow/OAuth as a later alternative to manual token entry
 
 ## 0.3.0-alpha — Folder publishing
 
@@ -81,9 +89,11 @@ The roadmap keeps Squido focused on publishing notes and tracking publish state.
 - Forgejo
 - Gitea
 - Generic Git
+- Provider-specific auth and credential requirements must be assessed before implementation
 
 ## 3.x — Hosted publishing platforms
 
 - Ghost
 - WordPress
 - Other APIs if worthwhile
+- Provider-specific auth and credential requirements must be assessed before implementation

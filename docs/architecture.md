@@ -6,9 +6,10 @@ Squido's alpha architecture follows the publishing flow directly:
 2. `PublishModal` confirms the current note and collects a commit message.
 3. `Publisher` reads the note, derives its destination, calls GitHub, and records a successful publish.
 4. `GitHubClient` owns the GitHub Contents API request and update SHA lookup.
-5. `ManifestStore` persists settings and publish records through Obsidian plugin data.
-6. `FileEventHandler` updates only already-tracked notes when vault paths or content change.
-7. `PublishStatusService` compares the current content hash with the last successful publish hash.
+5. `SecureCredentialStore` stores provider credentials through secure local storage, not plaintext plugin data.
+6. `ManifestStore` persists settings, encrypted credential records, and publish records through Obsidian plugin data.
+7. `FileEventHandler` updates only already-tracked notes when vault paths or content change.
+8. `PublishStatusService` compares the current content hash with the last successful publish hash.
 
 ## Lifecycle responsibilities
 
@@ -24,6 +25,8 @@ Commit messages are a publishing detail, not a Git workflow exposed to the write
 
 These are small responsibility boundaries, not a general publishing framework. Future integrations should consume intentionally exposed APIs or events when those milestones arrive. They should not reach into internal stores or require Squido to know another plugin's implementation.
 
+Provider integrations must follow the credential and authorization requirements in [provider-auth-requirements.md](provider-auth-requirements.md). Adding a provider is not just an API client task; each provider must document its auth model, scope granularity, secure-storage behavior, revocation path, and destination isolation.
+
 ## Non-goals
 
 - Site generation or rendering
@@ -31,6 +34,6 @@ These are small responsibility boundaries, not a general publishing framework. F
 - Vault navigation
 - Moving or routing notes
 - Automatic publishing
-- Device Flow/OAuth authentication in `0.1.0-alpha`
-- Multiple destination abstraction
+- Plaintext token storage
+- Multiple destination abstraction before provider requirements are defined
 - Remote conflict resolution

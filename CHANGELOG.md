@@ -6,8 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.1.1-alpha] - 2026-06-25
+
+### Added
+
+- Added GitHub Device Flow as the recommended local testing connection path, with manual token entry retained as an advanced fallback.
+- Added secure local credential storage so GitHub tokens are not stored as plaintext in Obsidian plugin data.
+- Added provider authentication requirements documentation for future GitHub, GitLab, Forgejo, Gitea, Ghost, WordPress, Medium, and Micro.blog integrations.
+
 ### Changed
 
+- Bumped the working alpha version to `0.1.1-alpha`.
+- Marked credentialed publishing as desktop-only until a mobile secure-storage adapter exists.
+- Documented OAuth Client ID setup, scope tradeoffs, secure credential storage, and the split between authentication and destination-picker work.
 - Documented the first-publish, local-change detection, and republish lifecycle.
 - Expanded the planned manifest contract to include destination identity and the GitHub file SHA.
 - Clarified generated publish/update messages, later auto-republish safeguards, and later Device Flow/OAuth planning.
@@ -25,5 +36,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Current-note publish status indicator.
 - Initial project, security, manifest, and architecture documentation.
 
-[Unreleased]: https://github.com/DeLeon-Labs/squido/compare/0.1.0-alpha...HEAD
+[Unreleased]: https://github.com/DeLeon-Labs/squido/compare/0.1.1-alpha...HEAD
+[0.1.1-alpha]: https://github.com/DeLeon-Labs/squido/compare/0.1.0-alpha...0.1.1-alpha
 [0.1.0-alpha]: https://github.com/DeLeon-Labs/squido/releases/tag/0.1.0-alpha

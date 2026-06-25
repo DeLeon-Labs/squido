@@ -5,3 +5,10 @@
   margin-top: var(--size-4-4);
 }
 
+.squido-auth-status {
+  background: var(--background-secondary);
+  border-radius: var(--radius-s);
+  font-family: var(--font-monospace);
+  margin: var(--size-4-2) 0 var(--size-4-4);
+  padding: var(--size-4-2);
+}

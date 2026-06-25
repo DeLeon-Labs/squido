@@ -49,7 +49,6 @@ export function commitMessageFor(file: TFile, template: string): string {
 
 function validateSettings(settings: SquidoSettings): void {
   const required: Array<[string, string]> = [
-    ["GitHub token", settings.githubToken],
     ["owner or organization", settings.owner],
     ["repository", settings.repo],
     ["branch", settings.branch],

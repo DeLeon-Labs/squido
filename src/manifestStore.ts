@@ -1,7 +1,17 @@
-import type { PublishManifest, PublishManifestEntry, SquidoData, SquidoSettings } from "./types";
+import type { PublishManifest, PublishManifestEntry, SecureCredentialRecord, SquidoData, SquidoSettings } from "./types";
 
 export const DEFAULT_SETTINGS: SquidoSettings = {
-  githubToken: "",
+  githubCredentialKey: "github",
+  hasGitHubCredential: false,
+  githubTokenSource: "manual",
+  githubOAuthClientId: "",
+  githubOAuthScopes: "repo",
+  githubUserLogin: "",
+  githubTokenScopes: "",
+  githubDeviceUserCode: "",
+  githubDeviceVerificationUri: "",
+  githubDeviceExpiresAt: "",
+  githubDeviceStatus: "",
   owner: "",
   repo: "",
   branch: "main",
@@ -13,6 +23,7 @@ export class ManifestStore {
   private data: SquidoData = {
     settings: { ...DEFAULT_SETTINGS },
     manifest: {},
+    credentials: {},
   };
 
   constructor(
@@ -22,9 +33,12 @@ export class ManifestStore {
 
   async initialize(): Promise<void> {
     const stored = (await this.load()) as Partial<SquidoData> | null;
+    const settings = { ...DEFAULT_SETTINGS, ...stored?.settings };
+    delete (settings as { githubToken?: string }).githubToken;
     this.data = {
-      settings: { ...DEFAULT_SETTINGS, ...stored?.settings },
+      settings,
       manifest: { ...stored?.manifest },
+      credentials: { ...stored?.credentials },
     };
   }
 
@@ -44,6 +58,21 @@ export class ManifestStore {
 
   getAll(): PublishManifest {
     return structuredClone(this.data.manifest);
+  }
+
+  getCredential(key: string): SecureCredentialRecord | undefined {
+    const record = this.data.credentials[key];
+    return record ? { ...record } : undefined;
+  }
+
+  async setCredential(key: string, record: SecureCredentialRecord): Promise<void> {
+    this.data.credentials[key] = { ...record };
+    await this.persist();
+  }
+
+  async deleteCredential(key: string): Promise<void> {
+    delete this.data.credentials[key];
+    await this.persist();
   }
 
   async set(entry: PublishManifestEntry): Promise<void> {
@@ -76,4 +105,3 @@ export class ManifestStore {
     await this.save(structuredClone(this.data));
   }
 }
-

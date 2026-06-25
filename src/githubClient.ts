@@ -11,10 +11,10 @@ interface GitHubCommitResponse {
 }
 
 export class GitHubClient {
-  constructor(private readonly getToken: () => string) {}
+  constructor(private readonly getToken: () => Promise<string>) {}
 
   async publishFile(request: PublishRequest): Promise<PublishResult> {
-    const token = this.getToken().trim();
+    const token = (await this.getToken()).trim();
     if (!token) throw new Error("A GitHub token is required.");
 
     const endpoint = this.contentEndpoint(request.owner, request.repo, request.path);
@@ -91,4 +91,3 @@ function isMessageBody(value: unknown): value is { message: string } {
   return typeof value === "object" && value !== null && "message" in value &&
     typeof (value as { message?: unknown }).message === "string";
 }
-
