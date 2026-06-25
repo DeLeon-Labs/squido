@@ -65,7 +65,7 @@ pnpm run dev
 The development process watches `src/main.ts` and writes the complete Obsidian runtime bundle to `dist/`. Point the test vault's plugin folder at that directory, then enable Squido in Obsidian:
 
 ```sh
-ln -s /Users/jon/Developer/DeLeon-Labs/squido/dist "<test-vault>/.obsidian/plugins/squido"
+ln -s "/path/to/squido/dist" "/path/to/test-vault/.obsidian/plugins/squido"
 ```
 
 The `dist/` folder contains exactly `main.js`, `manifest.json`, and `styles.css`. It is generated locally and is not committed. Obsidian's runtime `data.json` is also ignored.
