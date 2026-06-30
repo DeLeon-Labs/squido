@@ -8,7 +8,7 @@
     "clean": "node esbuild.config.mjs clean",
     "dev": "pnpm run clean && node esbuild.config.mjs",
     "typecheck": "tsc --noEmit",
-    "build": "pnpm run clean && pnpm run typecheck && node esbuild.config.mjs production"
+    "build": "CI=true pnpm run clean && CI=true pnpm run typecheck && node esbuild.config.mjs production"
   },
   "keywords": [
     "obsidian",
