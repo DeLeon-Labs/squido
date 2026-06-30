@@ -1,6 +1,6 @@
 # Publishing lifecycle
 
-Squido treats publishing as a lifecycle, not a one-off file transfer. The local manifest is the record of what Squido last published and the basis for deciding what action the current note needs.
+Squido treats publishing as a lifecycle, not a one-off file transfer. Obsidian is the editing surface, GitHub is the canonical published state, and the local manifest records the binding between them.
 
 | State | Meaning | Available manual action |
 | --- | --- | --- |
@@ -26,7 +26,7 @@ The manifest update happens only after GitHub confirms the publish.
 
 Squido computes the current local content hash and compares it with the hash stored after the last successful publish. Matching hashes mean `published`. Different hashes mean `published with local changes`.
 
-This comparison is local and answers one narrow question: has the note changed locally since Squido last published it? It does not claim that the remote file is unchanged. Remote validation and conflict detection remain `0.9.0-alpha` work.
+This comparison is local and answers one narrow question: has the note changed locally since Squido last published it? It does not claim that the remote file is unchanged. Remote validation and conflict detection belong to the import/synchronization roadmap.
 
 ## Republish
 
@@ -48,4 +48,6 @@ Publishing and republishing are manual in `0.1.0-alpha`. Optional auto-republish
 - granular controls for triggers and affected notes
 - a dry-run mode
 
-Manual token authentication remains the alpha authentication model. Device Flow/OAuth is planned separately after the core lifecycle is reliable.
+Manual token authentication remains the current alpha fallback. GitHub App connections are the planned foundation before destination-based publishing.
+
+Connection Integration is the bridge milestone: it should connect broker-backed GitHub auth to the existing single publish target and existing publish button before Squido adds multiple destinations, import, Lighthouse integration, or website workflows.
