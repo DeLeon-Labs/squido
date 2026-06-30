@@ -8,9 +8,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- Pivoted the strategic authentication roadmap from Device Flow to GitHub App installation.
+- Added GitHub App callback/setup planning before auth implementation.
+- Reconciled Connection and Destination terminology across planning docs.
+- Added a Connection Integration milestone between auth broker planning and Destination-Based Publishing.
+- Added destination-based publishing planning for the next major milestone.
+- Added planning for multiple GitHub destinations under one connection, destination publish modes, and non-publishing Rules.
+- Generalized illustrative destination examples and auth callback language for public architecture docs.
+- Added GitHub Markdown import workflow planning.
 - Documented the first-publish, local-change detection, and republish lifecycle.
 - Expanded the planned manifest contract to include destination identity and the GitHub file SHA.
-- Clarified generated publish/update messages, later auto-republish safeguards, and later Device Flow/OAuth planning.
+- Clarified generated publish/update messages and later auto-republish safeguards.
 
 ## [0.1.0-alpha] - 2026-06-24
 

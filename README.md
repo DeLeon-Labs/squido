@@ -2,16 +2,16 @@
 
 Squido is a lightweight publishing layer for Obsidian. It manages the publishing lifecycle of selected Markdown notes through the GitHub Contents API, so a writer does not need to maintain a second local notes repository just to publish.
 
-Squido exists for a narrow job: publish the current note to a configured GitHub repository, remember the published state, detect later local edits, and update the same remote file when the writer republishes. GitHub is the publishing backend; Squido does not present itself as a developer-facing Git client.
+Squido exists for a narrow job: connect Obsidian notes to configured publishing destinations, publish selected notes, remember publish state, detect later local edits, and update the same remote files when the writer republishes. GitHub is the first destination provider; Squido does not present itself as a developer-facing Git client.
 
-The project is experimental. The first release is `0.1.0-alpha`.
+The project is experimental. The first release is `0.1.0-alpha`; current planning is focused on the vNext connection and destination architecture.
 
-## MVP scope
+## Current alpha scope
 
 - Publish the current Markdown note from a command or ribbon icon.
 - Confirm the destination and edit the commit message before publishing.
-- Publish to one GitHub repository, branch, and target folder.
-- Use a manually configured GitHub token with repository Contents write access.
+- Publish to one implicit GitHub destination made from repository, branch, and folder/path settings.
+- Use a manually configured GitHub token as an alpha/Advanced fallback.
 - Keep destination details, the GitHub file SHA, the local content hash, the published URL, and the last-published timestamp in Squido's local plugin data rather than note frontmatter.
 - Detect local changes made after a successful publish.
 - Republish an already-published note to update the same remote file.
@@ -21,7 +21,7 @@ The project is experimental. The first release is `0.1.0-alpha`.
 
 ## Intentionally not included
 
-Squido is not a CMS or a digital garden platform. It does not build a site, render pages, manage navigation, or move and route notes inside a vault. Publishing rules, automatic republishing, batch publishing, multiple destinations, Device Flow/OAuth authentication, and other Git platforms are future roadmap work—not hidden behavior in the MVP.
+Squido is not a CMS or a digital garden platform. It does not build a site, render pages, manage navigation, or move and route notes inside a vault. Publishing rules, automatic republishing, batch publishing, and other Git platforms are future roadmap work—not hidden behavior in the MVP.
 
 Future Lighthouse and Note Actions integrations will use public APIs or events. Squido will not require either plugin and will not tightly couple to their internals.
 
@@ -37,7 +37,29 @@ Future Lighthouse and Note Actions integrations will use public APIs or events. 
 Squido's lifecycle defaults are `Publish: {{title}}` for the first publish and `Update: {{title}}` for later republishes. Squido replaces `{{title}}` with the note filename without its `.md` extension. Writers may override the generated message, but they should not need Git vocabulary for routine publishing.
 
 > [!CAUTION]
-> The alpha stores the GitHub token in Obsidian's local plugin data. Protect the vault and use a fine-grained token limited to the destination repository.
+> The alpha manual PAT fallback stores the GitHub token in Obsidian's local plugin data. Protect the vault and use a fine-grained token limited to the destination repository. The strategic public setup path is GitHub App installation, not manual token setup.
+
+## How Squido connects to GitHub
+
+The strategic auth model is GitHub App installation. Squido should feel like **Connect GitHub → choose destination → publish/import**.
+
+GitHub App auth is planned before destination-based publishing because it gives Squido the right permission shape: users and organizations can grant access to selected repositories instead of broad account-level OAuth scopes.
+
+The bridge milestone is **0.2.4 — Connection Integration**. It should make Connect GitHub, Disconnect, repository picker, branch picker, folder picker, PAT migration, and the existing publish button work without introducing multiple destinations or a publishing router.
+
+A **connection** represents GitHub provider access: account or organization context, installation identity, and accessible repositories. A **destination** belongs to a connection and stores publishing settings: repository, branch, folder/path, publish mode, optional URL pattern, and future metadata/schema settings.
+
+One GitHub connection may contain multiple destinations. For example, a GitHub connection could have:
+
+- **Publication Log:** append selected notes or entries to `/published/publication-log.md`.
+- **Articles:** publish individual notes to `/published/articles/{{slug}}.md`.
+- **Documentation content:** publish notes into a static-site Markdown content folder.
+
+Rules can later suggest or select destinations from note folder, tag, frontmatter property, filename pattern, or active Lighthouse Focus. Rules should not auto-publish unless the user explicitly enables that behavior.
+
+Manual personal access token setup remains available under Advanced during the alpha so existing users can keep publishing. Device Flow is not the strategic direction for Squido.
+
+The callback strategy is documented in [docs/authentication.md](docs/authentication.md). The short version: GitHub redirects to a product-controlled HTTPS callback, the plugin polls a short-lived connection session, and Squido publishes directly to GitHub with short-lived installation tokens. The broker should not proxy note content.
 
 ## Publishing lifecycle
 
@@ -52,6 +74,12 @@ Republishing is manual in `0.1.0-alpha`. Optional auto-republish remains later r
 ## Destination behavior
 
 The MVP publishes the note using its filename under the configured target folder. For example, `Notes/Hello.md` with a target folder of `content` is published as `content/Hello.md`. Two vault notes with the same filename can therefore target the same remote path; Squido shows the target in its confirmation flow, and broader path rules belong to a later milestone.
+
+Planned destination publish modes:
+
+- `file`: create or update one remote file per source note.
+- `append`: append source content to a configured remote file.
+- Later: index/list generation, PR mode, and archive mode.
 
 ## Development
 
@@ -77,7 +105,7 @@ pnpm run typecheck
 pnpm run build
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution boundaries and [ROADMAP.md](ROADMAP.md) for planned milestones. The lifecycle contract is documented in [docs/publishing-lifecycle.md](docs/publishing-lifecycle.md), with supporting technical notes in [`docs/`](docs/).
+See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution boundaries and [ROADMAP.md](ROADMAP.md) for planned milestones. The lifecycle contract is documented in [docs/publishing-lifecycle.md](docs/publishing-lifecycle.md). Authentication planning is documented in [docs/authentication.md](docs/authentication.md), destination planning is documented in [docs/destinations.md](docs/destinations.md), GitHub import planning is documented in [docs/github-import-workflow.md](docs/github-import-workflow.md), and the vNext architecture RFC is documented in [docs/rfc-squido-vnext-architecture.md](docs/rfc-squido-vnext-architecture.md).
 
 ## License
 
