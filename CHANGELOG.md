@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- Bumped the experimental broker test build version to `0.1.2-alpha`.
+- Split broker testing into discrete reachability, auth-start, and future completion stages with per-stage status reporting.
+- Kept the temporary broker test path isolated from publishing behavior for the experimental branch.
 - Bumped the development build version to `0.1.1-alpha` for the diagnostics workflow.
 - Added generated non-release build diagnostics through `dist/build-info.json` and a collapsible Developer settings section.
 - Pivoted the strategic authentication roadmap from Device Flow to GitHub App installation.

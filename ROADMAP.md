@@ -27,6 +27,17 @@ Goal: make non-release builds self-identifying so desktop and mobile vault testi
 - Keep production output limited to Obsidian runtime files
 - Keep `manifest.json` and `package.json` versions aligned with meaningful development milestones
 
+### 0.1.2-alpha — Broker stage test harness
+
+Goal: make broker/auth integration testing inspectable without changing publishing behavior.
+
+- Keep broker testing inside non-release Developer diagnostics
+- Split broker checks into reachability, auth start, and future completion stages
+- Report URL, method, status, response body, parsed response, and errors per stage
+- Treat `/health` success as broker reachable
+- Treat `501` auth route responses as reachable but not implemented
+- Keep manual PAT publishing untouched
+
 ## 0.2.x — Connection foundation
 
 Goal: replace developer-oriented setup with a professional connection model.
