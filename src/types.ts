@@ -12,6 +12,9 @@ export interface SquidoSettings {
   branch: string;
   targetFolder: string;
   commitMessageTemplate: string;
+  authBrokerBaseUrl: string;
+  brokerDebugLogging: boolean;
+  brokerGitHubConnection: BrokerGitHubConnectionState;
 }
 
 export interface BuildInfo {
@@ -24,6 +27,42 @@ export interface BuildInfo {
   dirty: boolean;
   release: boolean;
   defaultBrokerUrl?: string;
+}
+
+export type BrokerStageStatus =
+  | "not_run"
+  | "checking"
+  | "succeeded"
+  | "not_found"
+  | "not_implemented"
+  | "invalid_response"
+  | "failed";
+
+export interface BrokerStageState {
+  status: BrokerStageStatus;
+  checkedAt?: string;
+  savedBaseUrl?: string;
+  url?: string;
+  method?: "GET" | "POST";
+  responseStatus?: number;
+  responseBody?: string;
+  parsedResponse?: string;
+  message?: string;
+}
+
+export type BrokerGitHubConnectionStatus =
+  | "not_connected"
+  | "checking"
+  | "reachable"
+  | "not_found"
+  | "invalid_response"
+  | "failed";
+
+export interface BrokerGitHubConnectionState {
+  status: BrokerGitHubConnectionStatus;
+  lastError?: string;
+  reachability?: BrokerStageState;
+  authStart?: BrokerStageState;
 }
 
 export interface PublishManifestEntry {

@@ -32,6 +32,8 @@ Non-release builds include a Developer settings section driven by generated `dis
 
 Production builds should remain limited to the Obsidian runtime files: `main.js`, `manifest.json`, and `styles.css`.
 
+Experimental broker tests may appear inside this Developer section in non-release builds. They should remain staged and inspectable: reachability checks should not start auth, auth-start checks should not complete authentication, and future authentication completion should be implemented as a separate stage.
+
 ## Authentication direction
 
 GitHub App installation is the planned authentication foundation before destination-based publishing. The callback/setup flow must be designed before auth implementation. See [authentication.md](authentication.md) for the planned product-controlled HTTPS callback, broker session, optional Obsidian deep-link, and plugin polling strategy.
@@ -39,6 +41,14 @@ GitHub App installation is the planned authentication foundation before destinat
 The auth broker should manage GitHub App private-key operations and short-lived installation-token exchange. It should not proxy or store note content; Squido should publish directly to GitHub after receiving an installation token.
 
 The first implementation step after planning is Connection Integration: connect/disconnect GitHub, repository/branch/folder pickers, migration for existing PAT settings, and the existing publish button. It should not introduce multiple destinations, a publishing router, import, Lighthouse integration, or website workflows.
+
+The temporary broker-backed settings tests exist only to validate plugin-to-broker lifecycle stages against a local/dev broker. They are intentionally discrete:
+
+1. **Test Broker Reachability** calls only `GET /health`.
+2. **Start Auth Flow** calls only `POST /auth/github/start`.
+3. **Complete GitHub Authentication** is reserved for later real auth work.
+
+Each stage reports its own final URL, method, status, body, parsed response, and error. The tests must not publish content or touch manifests, bindings, destinations, or note content.
 
 ## Destination direction
 

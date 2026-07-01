@@ -106,6 +106,18 @@ CI=true pnpm run build:dev
 
 The generated Developer section shows the build version, branch, commit, build timestamp, dirty state, and relevant development defaults. It is hidden from production builds because production builds omit `build-info.json`.
 
+### Experimental broker stages
+
+The experimental auth branch adds broker test controls inside the non-release **Developer** section. These controls are discrete on purpose:
+
+- **Test Broker Reachability** calls only `GET ${authBrokerBaseUrl}/health`.
+- **Start Auth Flow** calls only `POST ${authBrokerBaseUrl}/auth/github/start`.
+- **Complete GitHub Authentication** is intentionally disabled until real GitHub App authentication is designed.
+
+`200 /health` with `{ ok: true }` means the broker is reachable. `501` from an auth route means the broker is reachable but that route is not implemented yet. Each stage reports the saved broker base URL, final request URL, method, status, response body, parsed response, and error message.
+
+These broker tests do not publish notes, open Safari, request tokens, store tokens, touch manifests, create bindings, create destinations, or change the existing PAT publishing path.
+
 Before submitting changes, run:
 
 ```sh
