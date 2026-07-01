@@ -4,7 +4,7 @@ Squido is a lightweight publishing layer for Obsidian. It manages the publishing
 
 Squido exists for a narrow job: connect Obsidian notes to configured publishing destinations, publish selected notes, remember publish state, detect later local edits, and update the same remote files when the writer republishes. GitHub is the first destination provider; Squido does not present itself as a developer-facing Git client.
 
-The project is experimental. The first release is `0.1.0-alpha`; current planning is focused on the vNext connection and destination architecture.
+The project is experimental. The first release was `0.1.0-alpha`; the current development build is `0.2.2-alpha`, focused on proving the GitHub App connection trust flow before publishing moves to connection-based credentials.
 
 ## Current alpha scope
 
@@ -12,6 +12,7 @@ The project is experimental. The first release is `0.1.0-alpha`; current plannin
 - Confirm the destination and edit the commit message before publishing.
 - Publish to one implicit GitHub destination made from repository, branch, and folder/path settings.
 - Use a manually configured GitHub token as an alpha/Advanced fallback.
+- Connect a GitHub App through the Squido auth broker to prove installation and polling lifecycle.
 - Keep destination details, the GitHub file SHA, the local content hash, the published URL, and the last-published timestamp in Squido's local plugin data rather than note frontmatter.
 - Detect local changes made after a successful publish.
 - Republish an already-published note to update the same remote file.
@@ -29,7 +30,7 @@ Future Lighthouse and Note Actions integrations will use public APIs or events. 
 
 1. Install the plugin in an Obsidian vault.
 2. Open **Settings → Squido**.
-3. Enter a GitHub token with Contents write access, the owner or organization, repository, branch, and optional target folder.
+3. For current publishing, enter a GitHub token with Contents write access, the owner or organization, repository, branch, and optional target folder under **Advanced manual publishing**.
 4. Open a Markdown note.
 5. Run **Squido: Publish current note** from the command palette or select the upload ribbon icon.
 6. Confirm the publish. The generated message can be overridden when needed.
@@ -41,7 +42,9 @@ Squido's lifecycle defaults are `Publish: {{title}}` for the first publish and `
 
 ## How Squido connects to GitHub
 
-The strategic auth model is GitHub App installation. Manual personal access tokens remain available during alpha as an explicit advanced/manual mode.
+The strategic auth model is GitHub App installation. In `0.2.2-alpha`, **Connect GitHub** starts a broker-backed GitHub App installation flow and stores only non-sensitive installation metadata after completion. This does not yet enable publishing, repository discovery, branch/folder picking, or destinations.
+
+Manual personal access tokens remain available during alpha as an explicit advanced/manual mode.
 
 Canonical docs:
 

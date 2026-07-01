@@ -86,7 +86,7 @@ This milestone must also migrate existing manual PAT users cleanly. The PAT fall
 
 0.2.5 should not introduce multiple destinations, a publishing router, Lighthouse integration, import workflows, or website workflows. Those features depend on a working connection integration but belong to later milestones.
 
-Before 0.2.5, **0.2.2 — GitHub App Authentication MVP** should prove only the trust flow: a user can click **Connect GitHub**, install or authorize the Squido GitHub App, return through the broker, and see Squido marked **Connected**. It should not enable publishing, repository discovery, branch/folder picking, or destination setup yet.
+**0.2.2 — GitHub App Authentication MVP** proves only the trust flow: a user can click **Connect GitHub**, install or authorize the Squido GitHub App, return through the broker, and see Squido marked **Connected**. It does not enable publishing, repository discovery, branch/folder picking, or destination setup yet.
 
 ## Credential boundaries
 
@@ -121,12 +121,10 @@ Manual PAT support remains under **Advanced** so existing alpha users can contin
 
 Manual PAT mode should remain visibly separate from the GitHub App path. It should be a deliberate user choice, not an automatic fallback from failed secure storage.
 
-## Open questions before implementation
+## Open questions after the connection MVP
 
 - What domain/subdomain will host the auth broker?
 - Will the broker return short-lived installation tokens to Squido, or only broker token exchange? The preferred answer remains short-lived authorization that lets note content go directly from Obsidian/Squido to GitHub.
-- How long should connection sessions live?
 - How should the plugin recover if the browser flow completes but Obsidian is closed?
-- What exact metadata should be stored in plugin data after connection?
 - Which secure storage implementation should be used on desktop and mobile?
 - What should the user experience be when secure storage is unavailable?

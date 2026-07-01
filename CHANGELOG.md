@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- Bumped the development build version to `0.2.2-alpha` for the GitHub App Authentication MVP.
+- Added a broker-backed GitHub App connection flow that starts installation, polls completion, and stores only non-sensitive connection metadata.
+- Kept manual PAT publishing available as the explicit advanced/manual publishing path while GitHub App publishing remains future work.
 - Bumped the development build version to `0.1.1-alpha` for the diagnostics workflow.
 - Added generated non-release build diagnostics through `dist/build-info.json` and a collapsible Developer settings section.
 - Pivoted the strategic authentication roadmap from Device Flow to GitHub App installation.
