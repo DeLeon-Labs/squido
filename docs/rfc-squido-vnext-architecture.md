@@ -1,7 +1,16 @@
 # RFC: Squido vNext Architecture
 
-Status: Draft  
+Status: Historical planning reference
 Scope: Architecture and product model only; no implementation requirements are implied until follow-up issues are accepted.
+
+This RFC is not the canonical source for current decisions. Use the focused docs for current architecture:
+
+- [Authentication](authentication.md)
+- [Security](security.md)
+- [Publishing lifecycle](publishing-lifecycle.md)
+- [Publish manifest](publish-manifest.md)
+- [Connections and destinations](destinations.md)
+- [Roadmap](../ROADMAP.md)
 
 ## 1. Product philosophy
 

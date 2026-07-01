@@ -41,7 +41,7 @@ A connection represents access to a provider account or organization. It owns au
 - Define GitHub App permissions
 - Explain why GitHub App installation replaces Device Flow as the strategic public setup path
 
-### GitHub App Authentication MVP
+### 0.2.2 — GitHub App Authentication MVP
 
 Goal: prove the GitHub App trust flow without enabling publishing or repository discovery.
 
@@ -68,7 +68,7 @@ Explicit non-goals:
 - Lighthouse integration
 - Website workflows
 
-### 0.2.2 — Connection model and trust documentation
+### 0.2.3 — Connection model and trust documentation
 
 - Document Connection as separate from Destination
 - Document manual PAT as Advanced fallback
@@ -77,7 +77,7 @@ Explicit non-goals:
 - Document revocation, reconnect, and permission-loss behavior
 - Add user-facing "How Squido connects to GitHub" language
 
-### 0.2.3 — Repo access and picker planning
+### 0.2.4 — Repo access and picker planning
 
 - Plan account/organization picker
 - Plan installation-scoped repository picker
@@ -86,7 +86,7 @@ Explicit non-goals:
 - Preserve current alpha manual destination settings during migration
 - Avoid showing repositories outside granted GitHub App permissions
 
-### 0.2.4 — Connection Integration
+### 0.2.5 — Connection Integration
 
 Goal: integrate the auth broker into Squido without changing publishing behavior.
 

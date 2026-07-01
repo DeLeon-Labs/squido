@@ -1,25 +1,27 @@
 # Security
 
-Squido sends note content to the GitHub destination configured by the user. The current alpha manual PAT fallback stores its manual GitHub token in Obsidian's local plugin data because Obsidian does not provide a cross-platform plugin secrets store.
+This is the short Squido security checklist. Detailed auth flow planning lives in [authentication.md](authentication.md). Canonical broker trust decisions live in the [squido-auth-broker ADR index](https://github.com/DeLeon-Labs/squido-auth-broker/blob/main/docs/decisions.md).
 
-The strategic authentication model is GitHub App installation. GitHub App auth should reduce permission blast radius by letting the user or organization grant Squido access to selected repositories through a connection. The GitHub App private key must never be bundled into the Obsidian plugin.
+## Current alpha
 
-The planned callback flow uses a product-controlled HTTPS setup/callback URL and a short-lived connection session that the plugin polls. This avoids relying on fragile desktop/mobile deep links as the only return path. Optional Obsidian deep links may improve the experience, but polling is the compatibility baseline.
+- Squido sends note content only to the configured GitHub API destination.
+- The manual PAT fallback stores its token in Obsidian plugin data because Obsidian does not provide a universal plugin secrets store.
+- Use a fine-grained personal access token restricted to the destination repository with only the Contents permission needed to write files.
+- Do not share or commit Squido `data.json`.
+- Treat vault backups and synced Obsidian configuration as sensitive if they include plugin data.
 
-The auth broker is infrastructure, not a publishing service. It exists because GitHub App secrets cannot live inside the Obsidian plugin. The broker must not receive note content, vault content, destinations, bindings, manifests, publish rules, repository file contents, or Lighthouse state.
+## Strategic GitHub App path
 
-Squido should publish directly to GitHub after obtaining short-lived authorization. Markdown and other user-authored content should not be proxied through the broker.
+- GitHub App auth is the strategic path because users and organizations can grant selected-repository access.
+- GitHub App private keys and broker signing secrets must never be bundled into the Obsidian plugin.
+- The auth broker is infrastructure, not a publishing service. See broker [ADR-0001](https://github.com/DeLeon-Labs/squido-auth-broker/blob/main/docs/decisions/ADR-0001-auth-broker-does-not-handle-note-content.md).
+- Squido should publish directly to GitHub after obtaining short-lived authorization. User-authored content should not be proxied through the broker.
+- Persistent GitHub App login requires secure local storage for sensitive credential material. See broker [ADR-0003](https://github.com/DeLeon-Labs/squido-auth-broker/blob/main/docs/decisions/ADR-0003-secure-storage-required-for-persistent-login.md).
+- If secure storage is unavailable, Squido must not silently fall back to plaintext plugin data for persistent GitHub App login.
 
-Squido may store non-sensitive connection metadata locally, such as provider name, account login, account id, installation id, repository selection metadata, permission names, and connected timestamp.
+## Publishing safety
 
-Sensitive credential material requires secure local storage. If secure storage is unavailable, persistent GitHub App login should not silently fall back to plaintext plugin data. Squido should fail closed, require reconnect/session-only behavior, or ask the user to explicitly choose advanced/manual PAT mode with clear warnings.
-
-Use a fine-grained personal access token restricted to the destination repository with only the Contents permission needed to write files when using the Advanced fallback. Do not share or commit the plugin's `data.json` file. Treat vault backups and synced Obsidian configuration as sensitive if they include plugin data.
-
-Before each publish or republish, Squido presents a confirmation modal and an editable generated message. It does not auto-publish, publish folders, or send note content to any service other than the configured GitHub API endpoint.
-
-Future Rules may inspect folder path, tag, frontmatter property, filename pattern, or active Lighthouse Focus later to suggest or auto-select destinations. Rules must not auto-publish unless the user explicitly enables that later behavior.
-
-Optional auto-republish is later work. It must be disabled by default and require explicit warnings and granular controls before note content can be sent without per-publish confirmation.
-
-Device Flow is not the strategic direction for Squido. Manual PAT fallback remains under Advanced while GitHub App auth is designed and implemented.
+- Before each publish or republish, Squido presents a confirmation modal and an editable generated message.
+- Squido does not auto-publish, publish folders, or send note content to any service other than the configured GitHub API endpoint in the alpha.
+- Future Rules may suggest or select destinations, but they must not auto-publish unless the user explicitly enables that later behavior.
+- Optional auto-republish is later work and must require explicit warnings and granular controls.

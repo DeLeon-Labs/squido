@@ -1,7 +1,7 @@
 # GitHub Import Workflow
 
-Status: Draft  
-Scope: UX and architecture planning only. Do not implement until GitHub App authentication and the destination model are accepted.
+Status: Planning, not implemented
+Depends on: GitHub App connection, repository picker, and destination model. Do not implement until those dependencies are accepted.
 
 ## Goal
 

@@ -1,48 +1,34 @@
 # Architecture
 
-For the vNext architecture proposal, see [rfc-squido-vnext-architecture.md](rfc-squido-vnext-architecture.md).
+This file is the current docs index and module map. It should stay short. Detailed concepts live in the focused docs linked below.
 
-Squido's alpha architecture follows the publishing flow directly:
+For historical vNext planning context, see [rfc-squido-vnext-architecture.md](rfc-squido-vnext-architecture.md). That RFC is reference material, not the canonical source for current decisions.
 
-1. `main.ts` registers the command, ribbon action, settings, status bar, and vault event listeners.
+## Current alpha module map
+
+Squido's alpha implementation follows the publishing flow directly:
+
+1. `main.ts` registers commands, ribbon action, settings, status bar, and vault event listeners.
 2. `PublishModal` confirms the current note and collects a commit message.
 3. `Publisher` reads the note, derives its destination, calls GitHub, and records a successful publish.
-4. `GitHubClient` owns the GitHub Contents API request and update SHA lookup.
+4. `GitHubClient` owns GitHub Contents API requests and update SHA lookup.
 5. `ManifestStore` persists settings and publish records through Obsidian plugin data.
-6. `FileEventHandler` updates only already-tracked notes when vault paths or content change.
-7. `PublishStatusService` compares the current content hash with the last successful publish hash.
+6. `FileEventHandler` updates already-tracked notes when vault paths or content change.
+7. `PublishStatusService` compares current content hash with the last successful publish hash.
 
-## Lifecycle responsibilities
+## Canonical docs
 
-The alpha design distinguishes a first publish from an update:
-
-- A first publish creates a GitHub file and stores both the returned file SHA and the hash of the local content that was sent.
-- Status detection compares current local content with the stored local hash. It does not need a network request for routine local-change detection.
-- A republish updates the existing remote file using the stored GitHub file SHA required by the GitHub Contents API.
-- A successful republish replaces the stored GitHub SHA, local content hash, published URL when returned, timestamp, and status as one manifest update.
-- Remote conflict detection is separate later work. The initial lifecycle assumes Squido's stored file SHA still identifies the remote version it last published and reports an API failure rather than silently overwriting on conflict.
-
-Commit messages are a publishing detail, not a Git workflow exposed to the writer. The publisher chooses `Publish: {{title}}` or `Update: {{title}}` from lifecycle state and allows an explicit override from the confirmation UI.
-
-These are small responsibility boundaries, not a general publishing framework. Future integrations should consume intentionally exposed APIs or events when those milestones arrive. They should not reach into internal stores or require Squido to know another plugin's implementation.
+- [Authentication](authentication.md): GitHub App strategy, manual PAT fallback, broker boundary, credential storage, and auth milestones.
+- [Security](security.md): concise security checklist and trust boundaries.
+- [Publishing lifecycle](publishing-lifecycle.md): first publish, local edits, republish, and automation boundary.
+- [Publish manifest](publish-manifest.md): current alpha manifest and vNext manifest planning.
+- [Connections and destinations](destinations.md): Connection, Destination, Rule, and destination-based publishing model.
+- [GitHub import workflow](github-import-workflow.md): planned Markdown import, duplicate detection, update, and conflict workflows.
+- [Roadmap](../ROADMAP.md): milestone sequence and implementation boundaries.
 
 ## Development diagnostics
 
-Non-release builds include a Developer settings section driven by generated `dist/build-info.json`. The file is generated from package and Git metadata during the build and is omitted from production builds. It exists to make local vault testing auditable without changing `manifest.json`.
-
-Production builds should remain limited to the Obsidian runtime files: `main.js`, `manifest.json`, and `styles.css`.
-
-## Authentication direction
-
-GitHub App installation is the planned authentication foundation before destination-based publishing. The callback/setup flow must be designed before auth implementation. See [authentication.md](authentication.md) for the planned product-controlled HTTPS callback, broker session, optional Obsidian deep-link, and plugin polling strategy.
-
-The auth broker should manage GitHub App private-key operations and short-lived installation-token exchange. It should not proxy or store note content; Squido should publish directly to GitHub after receiving an installation token.
-
-The first implementation step after planning is Connection Integration: connect/disconnect GitHub, repository/branch/folder pickers, migration for existing PAT settings, and the existing publish button. It should not introduce multiple destinations, a publishing router, import, Lighthouse integration, or website workflows.
-
-## Destination direction
-
-Squido is a content synchronization and publishing bridge. Obsidian is the editing surface, GitHub is the first canonical published-content backend, and destinations describe saved publish/import targets. See [destinations.md](destinations.md) for the planned connection/destination model and Destination-Based Publishing MVP.
+Non-release builds include a Developer settings section driven by generated `dist/build-info.json`. Production builds omit that file and should remain limited to Obsidian runtime files: `main.js`, `manifest.json`, and `styles.css`.
 
 ## Non-goals
 
@@ -50,7 +36,7 @@ Squido is a content synchronization and publishing bridge. Obsidian is the editi
 - Content modeling
 - Vault navigation
 - Moving or routing notes
-- Automatic publishing
-- Device Flow as the strategic auth direction
-- Implementing destination-based publishing before the connection model is accepted
-- Remote conflict resolution
+- Automatic publishing by default
+- Device Flow as the strategic public auth path
+- Broker-mediated note content publishing
+- Remote conflict resolution in the alpha

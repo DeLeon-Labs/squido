@@ -41,45 +41,21 @@ Squido's lifecycle defaults are `Publish: {{title}}` for the first publish and `
 
 ## How Squido connects to GitHub
 
-The strategic auth model is GitHub App installation. Squido should feel like **Connect GitHub → choose destination → publish/import**.
+The strategic auth model is GitHub App installation. Manual personal access tokens remain available during alpha as an explicit advanced/manual mode.
 
-GitHub App auth is planned before destination-based publishing because it gives Squido the right permission shape: users and organizations can grant access to selected repositories instead of broad account-level OAuth scopes.
+Canonical docs:
 
-The bridge milestone is **0.2.4 — Connection Integration**. It should make Connect GitHub, Disconnect, repository picker, branch picker, folder picker, PAT migration, and the existing publish button work without introducing multiple destinations or a publishing router.
-
-A **connection** represents GitHub provider access: account or organization context, installation identity, and accessible repositories. A **destination** belongs to a connection and stores publishing settings: repository, branch, folder/path, publish mode, optional URL pattern, and future metadata/schema settings.
-
-One GitHub connection may contain multiple destinations. For example, a GitHub connection could have:
-
-- **Publication Log:** append selected notes or entries to `/published/publication-log.md`.
-- **Articles:** publish individual notes to `/published/articles/{{slug}}.md`.
-- **Documentation content:** publish notes into a static-site Markdown content folder.
-
-Rules can later suggest or select destinations from note folder, tag, frontmatter property, filename pattern, or active Lighthouse Focus. Rules should not auto-publish unless the user explicitly enables that behavior.
-
-Manual personal access token setup remains available under Advanced during the alpha so existing users can keep publishing. Device Flow is not the strategic direction for Squido.
-
-The callback strategy is documented in [docs/authentication.md](docs/authentication.md). The short version: GitHub redirects to a product-controlled HTTPS callback, the plugin polls a short-lived connection session, and Squido publishes directly to GitHub with short-lived installation tokens. The broker should not proxy note content.
+- [Authentication](docs/authentication.md)
+- [Security](docs/security.md)
+- [Connections and destinations](docs/destinations.md)
 
 ## Publishing lifecycle
 
-1. **Unpublished:** The note has no local publish record and no Squido-managed remote file.
-2. **First publish:** Squido creates the remote file and records its destination, GitHub file SHA, local content hash, URL, timestamp, and published status.
-3. **Published:** The current local content hash matches the hash stored after the last successful publish.
-4. **Published with local changes:** The note was published before, but its current local hash differs from the last-published hash.
-5. **Republish:** Squido updates the existing GitHub file using its current file SHA, then replaces the stored remote SHA and local hash with the values from the successful update.
-
-Republishing is manual in `0.1.0-alpha`. Optional auto-republish remains later roadmap work and must be off by default, explicit about what will be sent, and controlled by granular settings and warnings.
+Squido tracks whether a note is unpublished, published, changed locally after publish, or ready to republish. The lifecycle contract is documented in [docs/publishing-lifecycle.md](docs/publishing-lifecycle.md), and the local manifest model is documented in [docs/publish-manifest.md](docs/publish-manifest.md).
 
 ## Destination behavior
 
-The MVP publishes the note using its filename under the configured target folder. For example, `Notes/Hello.md` with a target folder of `content` is published as `content/Hello.md`. Two vault notes with the same filename can therefore target the same remote path; Squido shows the target in its confirmation flow, and broader path rules belong to a later milestone.
-
-Planned destination publish modes:
-
-- `file`: create or update one remote file per source note.
-- `append`: append source content to a configured remote file.
-- Later: index/list generation, PR mode, and archive mode.
+The current alpha uses one implicit GitHub destination from settings. The planned connection, destination, binding, and rule model is documented in [docs/destinations.md](docs/destinations.md).
 
 ## Development
 
@@ -113,7 +89,7 @@ pnpm run typecheck
 pnpm run build
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution boundaries and [ROADMAP.md](ROADMAP.md) for planned milestones. The lifecycle contract is documented in [docs/publishing-lifecycle.md](docs/publishing-lifecycle.md). Authentication planning is documented in [docs/authentication.md](docs/authentication.md), destination planning is documented in [docs/destinations.md](docs/destinations.md), GitHub import planning is documented in [docs/github-import-workflow.md](docs/github-import-workflow.md), and the vNext architecture RFC is documented in [docs/rfc-squido-vnext-architecture.md](docs/rfc-squido-vnext-architecture.md).
+See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution boundaries and [ROADMAP.md](ROADMAP.md) for planned milestones. The docs index is [docs/architecture.md](docs/architecture.md).
 
 ## License
 

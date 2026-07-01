@@ -68,29 +68,25 @@ This polling-first strategy works on desktop and mobile because it does not depe
 
 The auth broker is infrastructure, not Squido product logic. It exists because GitHub App private keys, broker signing secrets, and token-exchange credentials cannot safely live inside the Obsidian plugin.
 
-The broker must not receive, store, log, proxy, or derive:
+Canonical broker decisions live in the broker repo:
 
-- note contents, titles, paths, frontmatter, attachments, or vault contents
-- Squido destinations, bindings, manifests, publish rules, or publish queues
-- repository file contents
-- Lighthouse state or future integration state
-- import, sync, conflict, routing, or publishing decisions
+- [ADR-0001: Auth broker does not handle note content](https://github.com/DeLeon-Labs/squido-auth-broker/blob/main/docs/decisions/ADR-0001-auth-broker-does-not-handle-note-content.md)
+- [ADR-0002: GitHub App authentication uses broker plus short-lived GitHub tokens](https://github.com/DeLeon-Labs/squido-auth-broker/blob/main/docs/decisions/ADR-0002-github-app-auth-uses-broker-and-short-lived-tokens.md)
+- [ADR-0003: Secure storage is required for persistent GitHub App login](https://github.com/DeLeon-Labs/squido-auth-broker/blob/main/docs/decisions/ADR-0003-secure-storage-required-for-persistent-login.md)
 
-The broker may manage only provider trust flow data, such as short-lived flow state, GitHub App installation identifiers, account or organization metadata, permission metadata, and short-lived GitHub installation-token exchange.
-
-Publishing content should go directly from Squido to GitHub after Squido obtains short-lived authorization. It should not go through the broker.
+Squido owns note content, destinations, bindings, manifests, publish rules, import/sync/conflict policy, and Lighthouse integration state. The broker owns provider trust flow state and GitHub App secret handling. Publishing content should go directly from Squido to GitHub after Squido obtains short-lived authorization.
 
 ## Connection integration milestone
 
-The first implementation milestone after broker and picker planning is **0.2.4 — Connection Integration**.
+The implementation bridge after broker and picker planning is **0.2.5 — Connection Integration**.
 
 Its purpose is to integrate the broker into Squido without changing publishing behavior. Users should be able to connect GitHub, disconnect GitHub, choose a granted repository, choose a branch, choose a folder/path, and continue using the existing **Publish current note** action.
 
 This milestone must also migrate existing manual PAT users cleanly. The PAT fallback can remain under **Advanced**, but existing users should not lose their current publish settings or need to recreate them manually.
 
-0.2.4 should not introduce multiple destinations, a publishing router, Lighthouse integration, import workflows, or website workflows. Those features depend on a working connection integration but belong to later milestones.
+0.2.5 should not introduce multiple destinations, a publishing router, Lighthouse integration, import workflows, or website workflows. Those features depend on a working connection integration but belong to later milestones.
 
-Before 0.2.4, the **GitHub App Authentication MVP** milestone should prove only the trust flow: a user can click **Connect GitHub**, install or authorize the Squido GitHub App, return through the broker, and see Squido marked **Connected**. It should not enable publishing, repository discovery, branch/folder picking, or destination setup yet.
+Before 0.2.5, **0.2.2 — GitHub App Authentication MVP** should prove only the trust flow: a user can click **Connect GitHub**, install or authorize the Squido GitHub App, return through the broker, and see Squido marked **Connected**. It should not enable publishing, repository discovery, branch/folder picking, or destination setup yet.
 
 ## Credential boundaries
 
@@ -117,7 +113,7 @@ Sensitive local data:
 
 The GitHub App private key belongs only on product-controlled infrastructure. Squido should store only the minimum local credential material required for the current session or fallback flow.
 
-No silent insecure credential storage: persistent GitHub App login requires secure local storage for sensitive credential material. If secure storage is unavailable, Squido should fail closed, require reconnect/session-only behavior, or ask the user to explicitly choose advanced/manual PAT mode with clear warnings. It must not silently persist sensitive GitHub App login material in plaintext plugin data while presenting the connection as secure.
+No silent insecure credential storage: persistent GitHub App login requires secure local storage for sensitive credential material. If secure storage is unavailable, Squido should fail closed, require reconnect/session-only behavior, or ask the user to explicitly choose advanced/manual PAT mode with clear warnings. It must not silently persist sensitive GitHub App login material in plaintext plugin data while presenting the connection as secure. See broker [ADR-0003](https://github.com/DeLeon-Labs/squido-auth-broker/blob/main/docs/decisions/ADR-0003-secure-storage-required-for-persistent-login.md).
 
 ## Manual token fallback
 
