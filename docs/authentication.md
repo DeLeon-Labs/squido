@@ -11,6 +11,32 @@ Squido's strategic authentication model is GitHub App installation, not Device F
 
 Manual personal access token entry remains available under **Advanced** for local testing and recovery, but it is not the primary user path.
 
+## Experimental local/dev broker stages
+
+Non-release builds include a temporary **Developer** settings section for validating that the plugin can reach the Squido Auth Broker from desktop or mobile. This section is hidden in production builds because production builds omit `dist/build-info.json`.
+
+The plugin stores an `authBrokerBaseUrl` setting with a default local value:
+
+```text
+http://localhost:8787
+```
+
+Tailscale URLs such as `http://100.117.254.44:8787` are also supported.
+
+The temporary stages:
+
+1. **Test Broker Reachability** calls `GET ${authBrokerBaseUrl}/health`.
+2. **Start Auth Flow** calls `POST ${authBrokerBaseUrl}/auth/github/start`.
+3. **Complete GitHub Authentication** is reserved for later and disabled until real authentication is designed.
+
+Each stage accepts broker base URLs with or without a trailing slash. `200 /health` with `{ ok: true }` means the broker is reachable. `501` from the auth start route means the broker is reachable but the auth route is not implemented yet. Stages distinguish network failure, 404, invalid response, success, not implemented, and other HTTP errors.
+
+Each stage logs the saved broker base URL, final request URL, method, status, response body, parsed response, and error message to the developer console and stage status.
+
+The broker tests must not open Safari, call root `/`, store note data, publish bindings, destination records, note content, or tokens. If the broker later returns a safe short-lived grant, that should be designed separately.
+
+The temporary broker tests are intentionally separate from publish logic. Existing PAT publishing remains intact while broker lifecycle stages are validated.
+
 ## Connection model
 
 A GitHub connection contains the provider, account or organization context, authentication/installation identity, and the repositories accessible through granted GitHub App permissions.
