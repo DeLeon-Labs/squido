@@ -14,6 +14,18 @@ export interface SquidoSettings {
   commitMessageTemplate: string;
 }
 
+export interface BuildInfo {
+  plugin: string;
+  version: string;
+  branch: string;
+  commit: string;
+  shortCommit: string;
+  builtAt: string;
+  dirty: boolean;
+  release: boolean;
+  defaultBrokerUrl?: string;
+}
+
 export interface PublishManifestEntry {
   localNotePath: string;
   targetRepoPath: string;
@@ -43,4 +55,3 @@ export interface PublishResult {
   publishedUrl?: string;
   commitUrl?: string;
 }
-

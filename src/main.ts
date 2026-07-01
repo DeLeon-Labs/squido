@@ -5,7 +5,7 @@ import { ManifestStore } from "./manifestStore";
 import { commitMessageFor, Publisher } from "./publisher";
 import { SquidoSettingTab } from "./settings";
 import { PublishStatusService } from "./status";
-import type { SquidoData, SquidoSettings } from "./types";
+import type { BuildInfo, SquidoData, SquidoSettings } from "./types";
 import { PublishModal } from "./ui/PublishModal";
 import { SquidoStatusBar } from "./ui/StatusBar";
 
@@ -15,6 +15,7 @@ export default class SquidoPlugin extends Plugin {
   private statusService!: PublishStatusService;
   private statusBar!: SquidoStatusBar;
   private fileEvents!: FileEventHandler;
+  private buildInfo: BuildInfo | null = null;
 
   async onload(): Promise<void> {
     this.manifestStore = new ManifestStore(
@@ -22,6 +23,7 @@ export default class SquidoPlugin extends Plugin {
       (data: SquidoData) => this.saveData(data),
     );
     await this.manifestStore.initialize();
+    this.buildInfo = await this.loadBuildInfo();
 
     const githubClient = new GitHubClient(() => this.manifestStore.getSettings().githubToken);
     this.publisher = new Publisher(this.app.vault, this.manifestStore, githubClient);
@@ -62,6 +64,10 @@ export default class SquidoPlugin extends Plugin {
     await this.manifestStore.updateSettings(settings);
   }
 
+  getBuildInfo(): BuildInfo | null {
+    return this.buildInfo;
+  }
+
   private async publishCurrentNote(): Promise<void> {
     const file = this.currentMarkdownFile();
     if (!file) {
@@ -98,4 +104,31 @@ export default class SquidoPlugin extends Plugin {
     }
     this.statusBar.setStatus(await this.statusService.statusFor(file));
   }
+
+  private async loadBuildInfo(): Promise<BuildInfo | null> {
+    const pluginDirectory = this.manifest.dir;
+    if (!pluginDirectory) return null;
+
+    const buildInfoPath = `${pluginDirectory}/build-info.json`;
+    try {
+      if (!await this.app.vault.adapter.exists(buildInfoPath)) return null;
+      const parsed = JSON.parse(await this.app.vault.adapter.read(buildInfoPath)) as unknown;
+      return isBuildInfo(parsed) && !parsed.release ? parsed : null;
+    } catch (error) {
+      console.warn("Squido could not read build-info.json", error);
+      return null;
+    }
+  }
+}
+
+function isBuildInfo(value: unknown): value is BuildInfo {
+  return typeof value === "object" && value !== null &&
+    typeof (value as { plugin?: unknown }).plugin === "string" &&
+    typeof (value as { version?: unknown }).version === "string" &&
+    typeof (value as { branch?: unknown }).branch === "string" &&
+    typeof (value as { commit?: unknown }).commit === "string" &&
+    typeof (value as { shortCommit?: unknown }).shortCommit === "string" &&
+    typeof (value as { builtAt?: unknown }).builtAt === "string" &&
+    typeof (value as { dirty?: unknown }).dirty === "boolean" &&
+    typeof (value as { release?: unknown }).release === "boolean";
 }

@@ -17,6 +17,16 @@ Goal: prove the basic manual publishing lifecycle with one implicit GitHub desti
 - Detect local changes after publish
 - Handle rename/move/delete/modify events for tracked notes
 
+### 0.1.1-alpha — Development diagnostics
+
+Goal: make non-release builds self-identifying so desktop and mobile vault testing can verify exactly which build is running.
+
+- Generate build metadata during the build from package and Git state
+- Display version, branch, commit, build timestamp, dirty state, and relevant development defaults in a Developer settings section
+- Include diagnostics only in non-release builds
+- Keep production output limited to Obsidian runtime files
+- Keep `manifest.json` and `package.json` versions aligned with meaningful development milestones
+
 ## 0.2.x — Connection foundation
 
 Goal: replace developer-oriented setup with a professional connection model.

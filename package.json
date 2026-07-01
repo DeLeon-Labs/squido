@@ -1,6 +1,6 @@
 {
   "name": "squido",
-  "version": "0.1.0-alpha",
+  "version": "0.1.1-alpha",
   "description": "A lightweight Obsidian publishing layer for publishing selected notes directly to GitHub.",
   "main": "dist/main.js",
   "type": "module",
@@ -8,6 +8,7 @@
     "clean": "node esbuild.config.mjs clean",
     "dev": "pnpm run clean && node esbuild.config.mjs",
     "typecheck": "tsc --noEmit",
+    "build:dev": "CI=true pnpm run clean && CI=true pnpm run typecheck && node esbuild.config.mjs development",
     "build": "CI=true pnpm run clean && CI=true pnpm run typecheck && node esbuild.config.mjs production"
   },
   "keywords": [

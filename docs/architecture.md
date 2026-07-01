@@ -26,6 +26,12 @@ Commit messages are a publishing detail, not a Git workflow exposed to the write
 
 These are small responsibility boundaries, not a general publishing framework. Future integrations should consume intentionally exposed APIs or events when those milestones arrive. They should not reach into internal stores or require Squido to know another plugin's implementation.
 
+## Development diagnostics
+
+Non-release builds include a Developer settings section driven by generated `dist/build-info.json`. The file is generated from package and Git metadata during the build and is omitted from production builds. It exists to make local vault testing auditable without changing `manifest.json`.
+
+Production builds should remain limited to the Obsidian runtime files: `main.js`, `manifest.json`, and `styles.css`.
+
 ## Authentication direction
 
 GitHub App installation is the planned authentication foundation before destination-based publishing. The callback/setup flow must be designed before auth implementation. See [authentication.md](authentication.md) for the planned product-controlled HTTPS callback, broker session, optional Obsidian deep-link, and plugin polling strategy.
