@@ -11,6 +11,8 @@ Squido's strategic authentication model is GitHub App installation, not Device F
 
 Manual personal access token entry remains available under **Advanced** for local testing and recovery, but it is not the primary user path.
 
+GitHub App authentication is the strategic path because it supports selected-repository installation and avoids asking users to create developer credentials. Manual PAT mode may remain available, but only as an explicit advanced/manual mode chosen by the user.
+
 ## Connection model
 
 A GitHub connection contains the provider, account or organization context, authentication/installation identity, and the repositories accessible through granted GitHub App permissions.
@@ -62,6 +64,22 @@ The callback flow should be designed before auth implementation:
 
 This polling-first strategy works on desktop and mobile because it does not depend on a custom URL callback successfully returning control to Obsidian. A deep link may improve the experience, but it should be optional.
 
+## Broker responsibility boundary
+
+The auth broker is infrastructure, not Squido product logic. It exists because GitHub App private keys, broker signing secrets, and token-exchange credentials cannot safely live inside the Obsidian plugin.
+
+The broker must not receive, store, log, proxy, or derive:
+
+- note contents, titles, paths, frontmatter, attachments, or vault contents
+- Squido destinations, bindings, manifests, publish rules, or publish queues
+- repository file contents
+- Lighthouse state or future integration state
+- import, sync, conflict, routing, or publishing decisions
+
+The broker may manage only provider trust flow data, such as short-lived flow state, GitHub App installation identifiers, account or organization metadata, permission metadata, and short-lived GitHub installation-token exchange.
+
+Publishing content should go directly from Squido to GitHub after Squido obtains short-lived authorization. It should not go through the broker.
+
 ## Connection integration milestone
 
 The first implementation milestone after broker and picker planning is **0.2.4 — Connection Integration**.
@@ -71,6 +89,8 @@ Its purpose is to integrate the broker into Squido without changing publishing b
 This milestone must also migrate existing manual PAT users cleanly. The PAT fallback can remain under **Advanced**, but existing users should not lose their current publish settings or need to recreate them manually.
 
 0.2.4 should not introduce multiple destinations, a publishing router, Lighthouse integration, import workflows, or website workflows. Those features depend on a working connection integration but belong to later milestones.
+
+Before 0.2.4, the **GitHub App Authentication MVP** milestone should prove only the trust flow: a user can click **Connect GitHub**, install or authorize the Squido GitHub App, return through the broker, and see Squido marked **Connected**. It should not enable publishing, repository discovery, branch/folder picking, or destination setup yet.
 
 ## Credential boundaries
 
@@ -92,18 +112,25 @@ Private data that must not be bundled into the Obsidian plugin:
 Sensitive local data:
 
 - short-lived installation tokens if cached locally
+- broker grants or session artifacts that can authorize GitHub access
 - manual personal access tokens if the advanced fallback is used
 
 The GitHub App private key belongs only on product-controlled infrastructure. Squido should store only the minimum local credential material required for the current session or fallback flow.
+
+No silent insecure credential storage: persistent GitHub App login requires secure local storage for sensitive credential material. If secure storage is unavailable, Squido should fail closed, require reconnect/session-only behavior, or ask the user to explicitly choose advanced/manual PAT mode with clear warnings. It must not silently persist sensitive GitHub App login material in plaintext plugin data while presenting the connection as secure.
 
 ## Manual token fallback
 
 Manual PAT support remains under **Advanced** so existing alpha users can continue publishing while GitHub App auth is built. The fallback must be documented as less ideal because access depends on the token's scopes and is not naturally limited by GitHub's selected-repository installation UI.
 
+Manual PAT mode should remain visibly separate from the GitHub App path. It should be a deliberate user choice, not an automatic fallback from failed secure storage.
+
 ## Open questions before implementation
 
 - What domain/subdomain will host the auth broker?
-- Will the broker return short-lived installation tokens to Squido, or only broker token exchange? The preferred answer is short-lived tokens so note content goes directly from Obsidian to GitHub.
+- Will the broker return short-lived installation tokens to Squido, or only broker token exchange? The preferred answer remains short-lived authorization that lets note content go directly from Obsidian/Squido to GitHub.
 - How long should connection sessions live?
 - How should the plugin recover if the browser flow completes but Obsidian is closed?
 - What exact metadata should be stored in plugin data after connection?
+- Which secure storage implementation should be used on desktop and mobile?
+- What should the user experience be when secure storage is unavailable?

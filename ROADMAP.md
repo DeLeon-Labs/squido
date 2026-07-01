@@ -41,6 +41,33 @@ A connection represents access to a provider account or organization. It owns au
 - Define GitHub App permissions
 - Explain why GitHub App installation replaces Device Flow as the strategic public setup path
 
+### GitHub App Authentication MVP
+
+Goal: prove the GitHub App trust flow without enabling publishing or repository discovery.
+
+A user can click **Connect GitHub**, install or authorize the Squido GitHub App, return through the broker, and see Squido marked **Connected**.
+
+Acceptance criteria:
+
+- Broker starts a short-lived GitHub App connection session
+- Squido opens or presents the broker-provided GitHub App installation URL
+- GitHub returns to a broker-controlled HTTPS setup/callback route
+- Squido polls for completion on desktop and mobile
+- Squido stores only non-sensitive connection metadata locally
+- Sensitive credential material uses secure local storage
+- If secure storage is unavailable, persistent GitHub App login does not silently fall back to insecure storage
+- Manual PAT mode remains available only as an explicit advanced/manual user choice
+
+Explicit non-goals:
+
+- Publishing with GitHub App credentials
+- Repository discovery
+- Branch or folder picker integration
+- Destination creation
+- Import or synchronization
+- Lighthouse integration
+- Website workflows
+
 ### 0.2.2 — Connection model and trust documentation
 
 - Document Connection as separate from Destination
