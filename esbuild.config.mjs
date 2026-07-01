@@ -1,12 +1,16 @@
 import esbuild from "esbuild";
 import process from "node:process";
 import { builtinModules } from "node:module";
-import { copyFile, mkdir, readdir, rm } from "node:fs/promises";
+import { execFile } from "node:child_process";
+import { copyFile, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { promisify } from "node:util";
 
 const mode = process.argv[2];
 const production = mode === "production";
+const developmentBuild = mode === "development";
 const outputDirectory = "dist";
 const releaseFiles = ["main.js", "manifest.json", "styles.css"];
+const execFileAsync = promisify(execFile);
 
 if (mode === "clean") {
   await rm(outputDirectory, { recursive: true, force: true });
@@ -18,6 +22,7 @@ await Promise.all([
   copyFile("manifest.json", `${outputDirectory}/manifest.json`),
   copyFile("styles.css", `${outputDirectory}/styles.css`),
 ]);
+if (!production) await writeBuildInfo();
 
 const context = await esbuild.context({
   banner: {
@@ -34,13 +39,44 @@ const context = await esbuild.context({
   outfile: `${outputDirectory}/main.js`,
 });
 
-if (production) {
+if (production || developmentBuild) {
   await context.rebuild();
   await context.dispose();
-  const builtFiles = (await readdir(outputDirectory)).sort();
-  if (builtFiles.join("\n") !== releaseFiles.sort().join("\n")) {
-    throw new Error(`Unexpected dist contents: ${builtFiles.join(", ")}`);
+  if (production) {
+    const builtFiles = (await readdir(outputDirectory)).sort();
+    if (builtFiles.join("\n") !== releaseFiles.sort().join("\n")) {
+      throw new Error(`Unexpected dist contents: ${builtFiles.join(", ")}`);
+    }
   }
 } else {
   await context.watch();
+}
+
+async function writeBuildInfo() {
+  const pkg = JSON.parse(await readFile("package.json", "utf8"));
+  const branch = await git(["branch", "--show-current"]);
+  const commit = await git(["rev-parse", "HEAD"]);
+  const shortCommit = await git(["rev-parse", "--short", "HEAD"]);
+  const status = await git(["status", "--porcelain"]);
+
+  await writeFile(`${outputDirectory}/build-info.json`, `${JSON.stringify({
+    plugin: pkg.name,
+    version: pkg.version,
+    branch: branch || "unknown",
+    commit: commit || "unknown",
+    shortCommit: shortCommit || "unknown",
+    builtAt: new Date().toISOString(),
+    dirty: status.length > 0,
+    release: false,
+    defaultBrokerUrl: process.env.SQUIDO_AUTH_BROKER_BASE_URL ?? "http://localhost:8787",
+  }, null, 2)}\n`);
+}
+
+async function git(args) {
+  try {
+    const { stdout } = await execFileAsync("git", args);
+    return stdout.trim();
+  } catch {
+    return "";
+  }
 }

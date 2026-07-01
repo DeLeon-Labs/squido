@@ -96,7 +96,15 @@ The development process watches `src/main.ts` and writes the complete Obsidian r
 ln -s "/path/to/squido/dist" "/path/to/test-vault/.obsidian/plugins/squido"
 ```
 
-The `dist/` folder contains exactly `main.js`, `manifest.json`, and `styles.css`. It is generated locally and is not committed. Obsidian's runtime `data.json` is also ignored.
+Release builds produce exactly `main.js`, `manifest.json`, and `styles.css`. Non-release builds also produce `build-info.json` for the Developer diagnostics panel. The `dist/` folder is generated locally and is not committed. Obsidian's runtime `data.json` is also ignored.
+
+Use a non-release build when deploying to a test vault:
+
+```sh
+CI=true pnpm run build:dev
+```
+
+The generated Developer section shows the build version, branch, commit, build timestamp, dirty state, and relevant development defaults. It is hidden from production builds because production builds omit `build-info.json`.
 
 Before submitting changes, run:
 
