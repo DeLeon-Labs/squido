@@ -91,6 +91,7 @@ export class SquidoSettingTab extends PluginSettingTab {
       });
 
       const rows = [
+        ["Broker URL", settings.authBrokerBaseUrl],
         ["Provider", connection.connection.provider],
         ["Account", connection.connection.account?.login ?? connection.connection.installation.account_login ?? "not returned"],
         ["Account ID", connection.connection.account?.id ?? "not returned"],

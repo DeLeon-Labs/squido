@@ -6,7 +6,7 @@ import { ManifestStore } from "./manifestStore";
 import { commitMessageFor, Publisher } from "./publisher";
 import { SquidoSettingTab } from "./settings";
 import { PublishStatusService } from "./status";
-import type { BuildInfo, GitHubAppConnectionState, SquidoData, SquidoSettings } from "./types";
+import type { BuildInfo, GitHubAppConnectionMetadata, GitHubAppConnectionState, SquidoData, SquidoSettings } from "./types";
 import { PublishModal } from "./ui/PublishModal";
 import { SquidoStatusBar } from "./ui/StatusBar";
 
@@ -217,13 +217,14 @@ export default class SquidoPlugin extends Plugin {
         });
         return;
       case "completed":
+      case "complete":
         this.stopGitHubConnectionPolling();
         await this.updateGitHubConnectionState({
           status: "connected",
           flow_id: status.flow_id,
           expires_at: status.expires_at,
           completed_at: new Date().toISOString(),
-          connection: status.connection,
+          connection: sanitizeGitHubConnectionMetadata(status.connection),
           last_error: undefined,
         });
         new Notice("GitHub connected.", 8000);
@@ -293,6 +294,25 @@ export default class SquidoPlugin extends Plugin {
       return null;
     }
   }
+}
+
+function sanitizeGitHubConnectionMetadata(connection: GitHubAppConnectionMetadata): GitHubAppConnectionMetadata {
+  return {
+    provider: "github",
+    account: connection.account
+      ? {
+          login: connection.account.login,
+          id: connection.account.id,
+          type: connection.account.type,
+        }
+      : undefined,
+    installation: {
+      id: connection.installation.id,
+      account_login: connection.installation.account_login,
+      setup_action: connection.installation.setup_action,
+    },
+    connected_at: connection.connected_at,
+  };
 }
 
 function isBuildInfo(value: unknown): value is BuildInfo {

@@ -23,6 +23,12 @@ export type GitHubAuthStatusResponse =
       connection: GitHubAppConnectionMetadata;
     }
   | {
+      status: "complete";
+      flow_id: string;
+      expires_at: string;
+      connection: GitHubAppConnectionMetadata;
+    }
+  | {
       status: "expired";
       flow_id: string;
       expires_at: string;
@@ -120,7 +126,7 @@ function isStatusResponse(value: unknown): value is GitHubAuthStatusResponse {
       typeof (value as { poll_interval_seconds?: unknown }).poll_interval_seconds === "number";
   }
 
-  if (status === "completed") {
+  if (status === "completed" || status === "complete") {
     return typeof (value as { expires_at?: unknown }).expires_at === "string" &&
       isConnectionMetadata((value as { connection?: unknown }).connection);
   }
