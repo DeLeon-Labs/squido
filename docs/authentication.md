@@ -58,11 +58,24 @@ The callback flow should be designed before auth implementation:
 5. GitHub redirects to the product setup/callback URL with `installation_id`, `setup_action`, and `state`.
 6. The broker validates `state`, records the installation metadata, and marks the connection session complete.
 7. The browser page says the connection is complete and offers an optional **Open Obsidian** deep link.
-8. Squido polls the broker for the connection session status and receives non-secret installation/account metadata.
-9. When Squido needs to publish, it asks the broker for a short-lived installation access token scoped to the selected installation/repository.
-10. Squido sends note content directly to GitHub using the short-lived token. The broker should not proxy or store note content.
+8. Squido polls the broker for the connection session status and receives installation/account metadata plus an opaque broker grant for later connection verification.
+9. Squido can use the broker grant to verify the existing GitHub App installation without reopening GitHub.
+10. When Squido needs to publish in a later milestone, it asks the broker for a short-lived installation access token scoped to the selected installation/repository.
+11. Squido sends note content directly to GitHub using the short-lived token. The broker should not proxy or store note content.
 
 This polling-first strategy works on desktop and mobile because it does not depend on a custom URL callback successfully returning control to Obsidian. A deep link may improve the experience, but it should be optional.
+
+### Already-installed GitHub App behavior
+
+GitHub redirects to the configured setup URL after a first install. If **Redirect on update** is enabled, GitHub also redirects after installation updates such as adding or removing repository access.
+
+If the Squido GitHub App is already installed and the user makes no repository-access changes, GitHub may keep the user on the installation/settings page instead of redirecting back to the broker setup URL. In that case, the broker never receives the stateful `installation_id` callback and Squido cannot safely mark that install-page flow connected.
+
+That already-installed case should not be treated as the reconnect mechanism. After a successful setup callback, the broker creates a Squido broker grant tied to a `connection_id`, `installation_id`, account login/id/type, and creation timestamp. Squido stores that broker grant as the alpha connection artifact and calls the broker connection-status endpoint to verify that the GitHub App installation still exists. If verification succeeds, Squido marks the connection **Connected** without opening GitHub. If verification fails or no broker grant exists, Squido shows **Reconnect GitHub** and starts a new GitHub install/setup flow.
+
+Squido must not complete an already-installed flow without a broker-verified `installation_id` tied to the current stateful connection attempt.
+
+Alpha storage note: the broker grant is not a GitHub token, but it is still sensitive because it can verify a Squido connection. Until secure storage is implemented, alpha builds may store it in Obsidian plugin data with a clear limitation. Production persistent GitHub App login should use secure local storage and must not silently claim secure persistence when secure storage is unavailable.
 
 ## Broker responsibility boundary
 

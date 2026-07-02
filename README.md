@@ -4,7 +4,7 @@ Squido is a lightweight publishing layer for Obsidian. It manages the publishing
 
 Squido exists for a narrow job: connect Obsidian notes to configured publishing destinations, publish selected notes, remember publish state, detect later local edits, and update the same remote files when the writer republishes. GitHub is the first destination provider; Squido does not present itself as a developer-facing Git client.
 
-The project is experimental. The first release was `0.1.0-alpha`; the current development build is `0.2.2-alpha`, focused on proving the GitHub App connection trust flow before publishing moves to connection-based credentials.
+The project is experimental. The first release was `0.1.0-alpha`; the current development build is `0.2.2-alpha.2`, focused on proving the GitHub App connection trust flow before publishing moves to connection-based credentials.
 
 ## Current alpha scope
 
@@ -42,7 +42,7 @@ Squido's lifecycle defaults are `Publish: {{title}}` for the first publish and `
 
 ## How Squido connects to GitHub
 
-The strategic auth model is GitHub App installation. In `0.2.2-alpha`, **Connect GitHub** starts a broker-backed GitHub App installation flow and stores only non-sensitive installation metadata after completion. This does not yet enable publishing, repository discovery, branch/folder picking, or destinations.
+The strategic auth model is GitHub App installation. In `0.2.2-alpha.2`, **Connect GitHub** starts a broker-backed GitHub App installation flow and stores installation metadata plus an alpha broker-grant connection artifact after completion. Squido uses that broker grant to verify an existing GitHub App connection without reopening GitHub. This does not yet enable publishing, repository discovery, branch/folder picking, or destinations.
 
 Manual personal access tokens remain available during alpha as an explicit advanced/manual mode.
 

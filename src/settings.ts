@@ -1,6 +1,6 @@
 import { PluginSettingTab, Setting, type App } from "obsidian";
 import type SquidoPlugin from "./main";
-import type { BuildInfo, SquidoSettings } from "./types";
+import type { BuildInfo, GitHubAppConnectionStatus, SquidoSettings } from "./types";
 
 type TextSettingKey = {
   [Key in keyof SquidoSettings]: SquidoSettings[Key] extends string ? Key : never;
@@ -53,15 +53,22 @@ export class SquidoSettingTab extends PluginSettingTab {
     );
 
     const connection = settings.githubAppConnection;
-    const statusText = statusLabel(connection.status);
+    const effectiveStatus = effectiveConnectionStatus(settings);
+    const statusText = statusLabel(effectiveStatus);
+    const connectDisabled = effectiveStatus === "connected" || effectiveStatus === "pending";
+    const disconnectDisabled = effectiveStatus === "not_connected";
+    const statusDescription = connection.last_error ? `${statusText}: ${connection.last_error}` : statusText;
+
+    this.renderConnectionIndicator(effectiveStatus, statusDescription);
+
     new Setting(this.containerEl)
       .setName("Connection status")
-      .setDesc(connection.last_error ? `${statusText}: ${connection.last_error}` : statusText)
+      .setDesc(statusDescription)
       .addButton((button) => {
         button
-          .setButtonText(connection.status === "pending" ? "Connecting…" : "Connect GitHub")
+          .setButtonText(connectButtonLabel(effectiveStatus))
           .setCta()
-          .setDisabled(connection.status === "pending")
+          .setDisabled(connectDisabled)
           .onClick(async () => {
             await this.plugin.connectGitHub();
             this.display();
@@ -70,20 +77,100 @@ export class SquidoSettingTab extends PluginSettingTab {
       .addButton((button) => {
         button
           .setButtonText("Disconnect")
-          .setDisabled(connection.status === "not_connected")
+          .setDisabled(disconnectDisabled)
           .onClick(async () => {
             await this.plugin.disconnectGitHub();
             this.display();
           });
       });
 
-    if (connection.status === "pending") {
+    if (connection.connection?.broker_grant) {
+      new Setting(this.containerEl)
+        .setName("Stored connection")
+        .setDesc("Verify the existing broker connection without opening GitHub. Alpha note: the broker grant is stored in Obsidian plugin data until secure storage is added.")
+        .addButton((button) => {
+          button
+            .setButtonText("Verify connection")
+            .onClick(async () => {
+              await this.plugin.refreshStoredGitHubConnection();
+              this.display();
+            });
+        });
+    }
+
+    if (effectiveStatus === "pending") {
+      if (shouldAutoRefreshPendingConnection(settings)) {
+        void this.plugin.refreshGitHubConnectionStatus({ showNotice: false });
+      }
+
+      new Setting(this.containerEl)
+        .setName("Pending connection tools")
+        .setDesc("Use these if GitHub was already installed, mobile returned to Obsidian, or polling has not updated yet.")
+        .addButton((button) => {
+          button
+            .setButtonText("Check status now")
+            .onClick(async () => {
+              await this.plugin.refreshGitHubConnectionStatus();
+              this.display();
+            });
+        })
+        .addButton((button) => {
+          button
+            .setButtonText("Open GitHub again")
+            .onClick(() => {
+              this.plugin.reopenGitHubConnectionUrl();
+            });
+        })
+        .addButton((button) => {
+          button
+            .setButtonText("Clear pending")
+            .onClick(async () => {
+              await this.plugin.clearPendingGitHubConnection();
+              this.display();
+            });
+        });
+
       this.containerEl.createEl("p", {
-        text: `Pending GitHub installation flow. Expires at ${connection.expires_at ?? "unknown"}.`,
+        text: `Waiting for GitHub to complete connection. Squido is polling the broker and will expire this flow at ${connection.expires_at ?? "unknown"}.`,
+      });
+      this.containerEl.createEl("p", {
+        text: "If the app is already installed and you make no repository-access changes, GitHub may not return to Squido automatically. Open GitHub again and click Save/Update if shown, or clear this pending flow and retry from Squido.",
+      });
+
+      const pendingDetails = this.containerEl.createEl("details");
+      pendingDetails.createEl("summary", { text: "Pending diagnostics" });
+      const rows = [
+        ["Flow ID", connection.flow_id ?? "not set"],
+        ["Status URL", connection.last_status_url ?? statusUrlFor(settings)],
+        ["Last checked", connection.last_status_checked_at ?? "not checked yet"],
+        ["Last result", connection.last_status_result ?? "not checked yet"],
+        ["Auth URL", connection.auth_url ?? "not set"],
+      ];
+      const list = pendingDetails.createEl("dl");
+      for (const [label, value] of rows) {
+        list.createEl("dt", { text: label });
+        list.createEl("dd", { text: value });
+      }
+    }
+
+    if (effectiveStatus === "expired") {
+      this.containerEl.createEl("p", {
+        text: "Connection did not complete. Try again.",
+      });
+      this.containerEl.createEl("p", {
+        text: "GitHub may not have returned to Squido. This can happen if the app was already installed and no repository-access changes were saved.",
       });
     }
 
-    if (connection.status === "connected" && connection.connection) {
+    if (effectiveStatus === "failed") {
+      this.containerEl.createEl("p", {
+        text: connection.last_error
+          ? `The GitHub connection failed: ${connection.last_error}`
+          : "The GitHub connection failed. Start a new connection attempt or disconnect to clear the local state.",
+      });
+    }
+
+    if (effectiveStatus === "connected" && connection.connection) {
       const details = this.containerEl.createEl("details");
       details.createEl("summary", { text: "Connected GitHub metadata" });
       details.createEl("p", {
@@ -91,13 +178,15 @@ export class SquidoSettingTab extends PluginSettingTab {
       });
 
       const rows = [
-        ["Broker URL", settings.authBrokerBaseUrl],
+        ["Broker URL", connection.connection.brokerBaseUrl ?? settings.authBrokerBaseUrl],
         ["Provider", connection.connection.provider],
         ["Account", connection.connection.account?.login ?? connection.connection.installation.account_login ?? "not returned"],
         ["Account ID", connection.connection.account?.id ?? "not returned"],
         ["Installation ID", connection.connection.installation.id],
         ["Setup action", connection.connection.installation.setup_action ?? "not returned"],
         ["Connected at", connection.connection.connected_at],
+        ["Last verified", connection.last_verified_at ?? "not verified this session"],
+        ["Connection ID", connection.connection.connection_id ?? "not returned"],
       ];
 
       const list = details.createEl("dl");
@@ -106,6 +195,20 @@ export class SquidoSettingTab extends PluginSettingTab {
         list.createEl("dd", { text: value });
       }
     }
+  }
+
+  private renderConnectionIndicator(status: GitHubAppConnectionStatus, label: string): void {
+    const indicator = this.containerEl.createDiv({
+      cls: `squido-connection-indicator squido-connection-indicator-${indicatorColor(status)}`,
+    });
+    indicator.createSpan({
+      cls: "squido-connection-dot",
+      attr: { "aria-hidden": "true" },
+    });
+    indicator.createSpan({
+      cls: "squido-connection-label",
+      text: label,
+    });
   }
 
   private textSetting(
@@ -163,5 +266,63 @@ function statusLabel(status: SquidoSettings["githubAppConnection"]["status"]): s
       return "Expired";
     case "failed":
       return "Failed";
+  }
+}
+
+function effectiveConnectionStatus(settings: SquidoSettings): GitHubAppConnectionStatus {
+  const connection = settings.githubAppConnection;
+  if (connection.status === "pending" && connection.expires_at && Date.now() > Date.parse(connection.expires_at)) {
+    return "expired";
+  }
+
+  return connection.status;
+}
+
+function shouldAutoRefreshPendingConnection(settings: SquidoSettings): boolean {
+  const connection = settings.githubAppConnection;
+  if (connection.status !== "pending") return false;
+  if (!connection.flow_id || !connection.expires_at) return false;
+  if (connection.expires_at && Date.now() > Date.parse(connection.expires_at)) return false;
+  if (!connection.last_status_checked_at) return true;
+
+  const checkedAt = Date.parse(connection.last_status_checked_at);
+  if (!Number.isFinite(checkedAt)) return true;
+
+  return Date.now() - checkedAt > 3000;
+}
+
+function statusUrlFor(settings: SquidoSettings): string {
+  const baseUrl = settings.authBrokerBaseUrl.trim().replace(/\/+$/g, "");
+  const flowId = settings.githubAppConnection.flow_id;
+  if (!baseUrl || !flowId) return "not available";
+
+  return `${baseUrl}/auth/github/status?flow_id=${encodeURIComponent(flowId)}`;
+}
+
+function connectButtonLabel(status: GitHubAppConnectionStatus): string {
+  switch (status) {
+    case "pending":
+      return "Connecting…";
+    case "connected":
+      return "Connected";
+    case "expired":
+    case "failed":
+      return "Reconnect GitHub";
+    default:
+      return "Connect GitHub";
+  }
+}
+
+function indicatorColor(status: GitHubAppConnectionStatus): "gray" | "green" | "yellow" | "red" {
+  switch (status) {
+    case "connected":
+      return "green";
+    case "pending":
+      return "yellow";
+    case "failed":
+    case "expired":
+      return "red";
+    case "not_connected":
+      return "gray";
   }
 }

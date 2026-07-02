@@ -25,6 +25,9 @@ export type GitHubAppConnectionStatus =
 
 export interface GitHubAppConnectionMetadata {
   provider: "github";
+  connection_id?: string;
+  broker_grant?: string;
+  brokerBaseUrl?: string;
   account?: {
     login?: string;
     id?: string;
@@ -47,6 +50,10 @@ export interface GitHubAppConnectionState {
   started_at?: string;
   completed_at?: string;
   last_error?: string;
+  last_status_checked_at?: string;
+  last_status_url?: string;
+  last_status_result?: string;
+  last_verified_at?: string;
   connection?: GitHubAppConnectionMetadata;
 }
 
