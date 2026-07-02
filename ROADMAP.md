@@ -54,8 +54,7 @@ Acceptance criteria:
 - GitHub returns to a broker-controlled HTTPS setup/callback route
 - Squido polls for completion on desktop and mobile
 - Squido stores only non-sensitive connection metadata locally
-- Sensitive credential material uses secure local storage
-- If secure storage is unavailable, persistent GitHub App login does not silently fall back to insecure storage
+- Broker grant storage is clearly labeled as an alpha/testing compromise until the credential-store milestone
 - Manual PAT mode remains available only as an explicit advanced/manual user choice
 
 Explicit non-goals:
@@ -75,9 +74,22 @@ Explicit non-goals:
 - Document what GitHub can access after installation
 - Document what Squido stores locally
 - Document revocation, reconnect, and permission-loss behavior
+- Document secure credential storage options and select the CredentialStore direction
 - Add user-facing "How Squido connects to GitHub" language
 
-### 0.2.4 — Repo access and picker planning
+### 0.2.4 — CredentialStore architecture
+
+Goal: establish credential persistence before token vending or any additional GitHub API functionality.
+
+- Define `CredentialStore` interface and lifecycle
+- Confirm whether Electron `safeStorage` is accessible from Obsidian desktop plugins
+- Detect and reject unsafe Linux `basic_text` style fallback modes
+- Define mobile behavior when secure storage is unavailable
+- Separate plugin-data metadata from sensitive broker grants, manual PATs, and future tokens
+- Decide whether beta mobile uses session-only GitHub App login
+- Do not implement token vending until this milestone has a safe storage path or explicit session-only fallback
+
+### 0.2.5 — Repo access and picker planning
 
 - Plan account/organization picker
 - Plan installation-scoped repository picker
@@ -86,7 +98,7 @@ Explicit non-goals:
 - Preserve current alpha manual destination settings during migration
 - Avoid showing repositories outside granted GitHub App permissions
 
-### 0.2.5 — Connection Integration
+### 0.2.6 — Connection Integration
 
 Goal: integrate the auth broker into Squido without changing publishing behavior.
 
