@@ -42,4 +42,3 @@ Squido will treat credential storage as a capability, not as an assumption.
 - [Secure credential storage investigation](../credential-storage-investigation.md)
 - [Authentication](../authentication.md)
 - [Security](../security.md)
-
