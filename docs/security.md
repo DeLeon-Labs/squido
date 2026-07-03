@@ -7,6 +7,7 @@ This is the short Squido security checklist. Detailed auth flow planning lives i
 - Squido sends note content only to the configured GitHub API destination.
 - The manual PAT fallback stores its token in Obsidian plugin data because Obsidian does not provide a universal plugin secrets store.
 - Use a fine-grained personal access token restricted to the destination repository with only the Contents permission needed to write files.
+- Broker grants are stored in plugin data only as an alpha/testing compromise. They are not GitHub tokens, but they are still sensitive connection artifacts.
 - Do not share or commit Squido `data.json`.
 - Treat vault backups and synced Obsidian configuration as sensitive if they include plugin data.
 
@@ -18,6 +19,8 @@ This is the short Squido security checklist. Detailed auth flow planning lives i
 - Squido should publish directly to GitHub after obtaining short-lived authorization. User-authored content should not be proxied through the broker.
 - Persistent GitHub App login requires secure local storage for sensitive credential material. See broker [ADR-0003](https://github.com/DeLeon-Labs/squido-auth-broker/blob/main/docs/decisions/ADR-0003-secure-storage-required-for-persistent-login.md).
 - If secure storage is unavailable, Squido must not silently fall back to plaintext plugin data for persistent GitHub App login.
+- Squido's accepted local storage direction is [ADR-0001: Secure credential storage strategy](decisions/ADR-0001-secure-credential-storage.md). The supporting research is in [Secure credential storage investigation](credential-storage-investigation.md).
+- Token vending must wait until Squido has a `CredentialStore` abstraction or an explicit session-only fallback.
 
 ## Publishing safety
 

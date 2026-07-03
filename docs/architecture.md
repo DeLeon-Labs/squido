@@ -20,10 +20,14 @@ Squido's alpha implementation follows the publishing flow directly:
 
 - [Authentication](authentication.md): GitHub App strategy, manual PAT fallback, broker boundary, credential storage, and auth milestones.
 - [Security](security.md): concise security checklist and trust boundaries.
+- [Architecture decisions](decisions.md): accepted Squido-side ADR index.
+- [Secure credential storage investigation](credential-storage-investigation.md): platform research, threat model, options, and storage recommendation before token vending.
+- [ADR-0001: Secure credential storage strategy](decisions/ADR-0001-secure-credential-storage.md): accepted direction for broker grants and future authentication material.
 - [Publishing lifecycle](publishing-lifecycle.md): first publish, local edits, republish, and automation boundary.
 - [Publish manifest](publish-manifest.md): current alpha manifest and vNext manifest planning.
 - [Connections and destinations](destinations.md): Connection, Destination, Rule, and destination-based publishing model.
 - [GitHub import workflow](github-import-workflow.md): planned Markdown import, duplicate detection, update, and conflict workflows.
+- [Squido Connect Local Agent RFC](rfc-squido-connect-local-agent.md): future Mac-first local auth agent concept for secure provider authentication.
 - [Roadmap](../ROADMAP.md): milestone sequence and implementation boundaries.
 
 ## Development diagnostics

@@ -77,6 +77,8 @@ Squido must not complete an already-installed flow without a broker-verified `in
 
 Alpha storage note: the broker grant is not a GitHub token, but it is still sensitive because it can verify a Squido connection. Until secure storage is implemented, alpha builds may store it in Obsidian plugin data with a clear limitation. Production persistent GitHub App login should use secure local storage and must not silently claim secure persistence when secure storage is unavailable.
 
+Squido's accepted storage direction is documented in [ADR-0001: Secure credential storage strategy](decisions/ADR-0001-secure-credential-storage.md), with platform research in [Secure credential storage investigation](credential-storage-investigation.md). Token vending should not proceed until Squido has a credential-store plan or an explicit session-only fallback.
+
 ## Broker responsibility boundary
 
 The auth broker is infrastructure, not Squido product logic. It exists because GitHub App private keys, broker signing secrets, and token-exchange credentials cannot safely live inside the Obsidian plugin.
@@ -91,13 +93,13 @@ Squido owns note content, destinations, bindings, manifests, publish rules, impo
 
 ## Connection integration milestone
 
-The implementation bridge after broker and picker planning is **0.2.5 — Connection Integration**.
+The implementation bridge after broker, credential storage, and picker planning is **0.2.6 — Connection Integration**.
 
 Its purpose is to integrate the broker into Squido without changing publishing behavior. Users should be able to connect GitHub, disconnect GitHub, choose a granted repository, choose a branch, choose a folder/path, and continue using the existing **Publish current note** action.
 
 This milestone must also migrate existing manual PAT users cleanly. The PAT fallback can remain under **Advanced**, but existing users should not lose their current publish settings or need to recreate them manually.
 
-0.2.5 should not introduce multiple destinations, a publishing router, Lighthouse integration, import workflows, or website workflows. Those features depend on a working connection integration but belong to later milestones.
+0.2.6 should not introduce multiple destinations, a publishing router, Lighthouse integration, import workflows, or website workflows. Those features depend on a working connection integration but belong to later milestones.
 
 **0.2.2 — GitHub App Authentication MVP** proves only the trust flow: a user can click **Connect GitHub**, install or authorize the Squido GitHub App, return through the broker, and see Squido marked **Connected**. It does not enable publishing, repository discovery, branch/folder picking, or destination setup yet.
 
@@ -139,5 +141,5 @@ Manual PAT mode should remain visibly separate from the GitHub App path. It shou
 - What domain/subdomain will host the auth broker?
 - Will the broker return short-lived installation tokens to Squido, or only broker token exchange? The preferred answer remains short-lived authorization that lets note content go directly from Obsidian/Squido to GitHub.
 - How should the plugin recover if the browser flow completes but Obsidian is closed?
-- Which secure storage implementation should be used on desktop and mobile?
-- What should the user experience be when secure storage is unavailable?
+- Can Obsidian desktop plugins access Electron `safeStorage` in a supported way?
+- Should beta mobile GitHub App login be session-only until Obsidian exposes secure storage?
