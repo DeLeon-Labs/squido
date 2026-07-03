@@ -5,3 +5,37 @@
   margin-top: var(--size-4-4);
 }
 
+.squido-connection-indicator {
+  align-items: center;
+  display: flex;
+  gap: var(--size-4-2);
+  margin: var(--size-4-2) 0;
+}
+
+.squido-connection-dot {
+  border-radius: 999px;
+  display: inline-block;
+  flex: 0 0 auto;
+  height: 0.75rem;
+  width: 0.75rem;
+}
+
+.squido-connection-indicator-gray .squido-connection-dot {
+  background: var(--text-muted);
+}
+
+.squido-connection-indicator-green .squido-connection-dot {
+  background: var(--color-green);
+}
+
+.squido-connection-indicator-yellow .squido-connection-dot {
+  background: var(--color-yellow);
+}
+
+.squido-connection-indicator-red .squido-connection-dot {
+  background: var(--color-red);
+}
+
+.squido-connection-label {
+  color: var(--text-normal);
+}

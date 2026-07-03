@@ -7,6 +7,10 @@ export const DEFAULT_SETTINGS: SquidoSettings = {
   branch: "main",
   targetFolder: "",
   commitMessageTemplate: "publish {{title}}",
+  authBrokerBaseUrl: "http://localhost:8787",
+  githubAppConnection: {
+    status: "not_connected",
+  },
 };
 
 export class ManifestStore {
@@ -76,4 +80,3 @@ export class ManifestStore {
     await this.save(structuredClone(this.data));
   }
 }
-

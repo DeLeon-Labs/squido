@@ -8,6 +8,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- Bumped the development build version to `0.2.2-alpha.2` for broker-grant connection verification.
+- Added stored broker-grant verification so an existing GitHub App connection can be refreshed without reopening GitHub.
+- Documented broker-grant reconnect behavior as the reliable already-installed GitHub App path.
+- Bumped the development build version to `0.2.2-alpha.1` for GitHub App connection UI state fixes.
+- Improved GitHub App connection Settings UI with status indicators, connected-button disabling, clearer pending/expired/failed feedback, and connected metadata display.
+- Added mobile-friendly pending connection recovery with foreground status refresh, manual status check, and reopen-GitHub controls.
+- Clarified already-installed GitHub App behavior when GitHub does not redirect back to the broker setup URL.
+- Bumped the development build version to `0.2.2-alpha` for the GitHub App Authentication MVP.
+- Added a broker-backed GitHub App connection flow that starts installation, polls completion, and stores only non-sensitive connection metadata.
+- Kept manual PAT publishing available as the explicit advanced/manual publishing path while GitHub App publishing remains future work.
 - Bumped the development build version to `0.1.1-alpha` for the diagnostics workflow.
 - Added generated non-release build diagnostics through `dist/build-info.json` and a collapsible Developer settings section.
 - Pivoted the strategic authentication roadmap from Device Flow to GitHub App installation.
