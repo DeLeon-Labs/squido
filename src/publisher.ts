@@ -1,6 +1,6 @@
 import { normalizePath, type TFile, type Vault } from "obsidian";
 import type { GitHubClient } from "./githubClient";
-import type { ManifestStore } from "./manifestStore";
+import type { ManifestStore } from "./storage/manifestStore";
 import { hashContent } from "./status";
 import type { PublishResult, SquidoSettings } from "./types";
 

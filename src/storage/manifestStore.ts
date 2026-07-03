@@ -1,4 +1,4 @@
-import type { PublishManifest, PublishManifestEntry, SquidoData, SquidoSettings } from "./types";
+import type { PublishManifest, PublishManifestEntry, SquidoData, SquidoSettings } from "../types";
 
 export const DEFAULT_SETTINGS: SquidoSettings = {
   githubToken: "",

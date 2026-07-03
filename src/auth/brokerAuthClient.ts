@@ -1,5 +1,5 @@
 import { requestUrl } from "obsidian";
-import type { GitHubAppConnectionMetadata } from "./types";
+import type { GitHubAppConnectionMetadata } from "../types";
 
 export interface GitHubAuthStartResponse {
   status: "pending";

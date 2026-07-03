@@ -1,5 +1,5 @@
 import type { Vault, TFile } from "obsidian";
-import type { ManifestStore } from "./manifestStore";
+import type { ManifestStore } from "./storage/manifestStore";
 import type { PublishStatus } from "./types";
 
 export class PublishStatusService {
@@ -25,4 +25,3 @@ export async function hashContent(content: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(content));
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
-
