@@ -79,6 +79,8 @@ Alpha storage note: the broker grant is not a GitHub token, but it is still sens
 
 Squido's accepted storage direction is documented in [ADR-0001: Secure credential storage strategy](decisions/ADR-0001-secure-credential-storage.md), with platform research in [Secure credential storage investigation](credential-storage-investigation.md). Token vending should not proceed until Squido has a credential-store plan or an explicit session-only fallback.
 
+The current alpha implementation uses `PluginDataCredentialStore` as the reference implementation because plugin data is the best currently known cross-platform option within the constraints of the Obsidian plugin API. This is not secure persistent storage. The abstraction leaves room for future `SecureCredentialStore`, `SquidoConnectCredentialStore`, and `SessionOnlyCredentialStore` backends without changing GitHub connection orchestration.
+
 ## Broker responsibility boundary
 
 The auth broker is infrastructure, not Squido product logic. It exists because GitHub App private keys, broker signing secrets, and token-exchange credentials cannot safely live inside the Obsidian plugin.
@@ -93,13 +95,13 @@ Squido owns note content, destinations, bindings, manifests, publish rules, impo
 
 ## Connection integration milestone
 
-The implementation bridge after broker, credential storage, and picker planning is **0.2.6 — Connection Integration**.
+The implementation bridge after broker, credential storage, modular cleanup, and picker planning is **0.2.7 — Connection Integration**.
 
 Its purpose is to integrate the broker into Squido without changing publishing behavior. Users should be able to connect GitHub, disconnect GitHub, choose a granted repository, choose a branch, choose a folder/path, and continue using the existing **Publish current note** action.
 
 This milestone must also migrate existing manual PAT users cleanly. The PAT fallback can remain under **Advanced**, but existing users should not lose their current publish settings or need to recreate them manually.
 
-0.2.6 should not introduce multiple destinations, a publishing router, Lighthouse integration, import workflows, or website workflows. Those features depend on a working connection integration but belong to later milestones.
+0.2.7 should not introduce multiple destinations, a publishing router, Lighthouse integration, import workflows, or website workflows. Those features depend on a working connection integration but belong to later milestones.
 
 **0.2.2 — GitHub App Authentication MVP** proves only the trust flow: a user can click **Connect GitHub**, install or authorize the Squido GitHub App, return through the broker, and see Squido marked **Connected**. It does not enable publishing, repository discovery, branch/folder picking, or destination setup yet.
 

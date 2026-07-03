@@ -1,5 +1,5 @@
 import type { EventRef, TAbstractFile, TFile, Vault } from "obsidian";
-import type { ManifestStore } from "./manifestStore";
+import type { ManifestStore } from "./storage/manifestStore";
 import type { Publisher } from "./publisher";
 
 export class FileEventHandler {
@@ -47,4 +47,3 @@ export class FileEventHandler {
 function isMarkdownFile(file: TAbstractFile): file is TFile {
   return "extension" in file && file.extension === "md";
 }
-

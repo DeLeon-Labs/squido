@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- Bumped the development build version to `0.2.6-alpha` for the modular architecture cleanup milestone.
+- Modularized source ownership for GitHub App connection orchestration, settings sections, credential storage seam, build diagnostics, and manifest storage without changing runtime behavior.
 - Bumped the development build version to `0.2.2-alpha.2` for broker-grant connection verification.
 - Added stored broker-grant verification so an existing GitHub App connection can be refreshed without reopening GitHub.
 - Documented broker-grant reconnect behavior as the reliable already-installed GitHub App path.

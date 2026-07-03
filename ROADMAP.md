@@ -98,7 +98,22 @@ Goal: establish credential persistence before token vending or any additional Gi
 - Preserve current alpha manual destination settings during migration
 - Avoid showing repositories outside granted GitHub App permissions
 
-### 0.2.6 — Connection Integration
+### 0.2.6 — Squido modular architecture cleanup
+
+Goal: modularize the Squido plugin before adding token vending, repository pickers, branch/folder pickers, or publishing through GitHub App credentials.
+
+- Keep runtime behavior unchanged
+- Keep `main.ts` focused on plugin lifecycle and orchestration
+- Move GitHub App connection orchestration into focused auth modules
+- Split Settings UI into focused sections
+- Move manifest persistence into storage ownership
+- Move build-info loading into diagnostics ownership
+- Add a provider-agnostic `CredentialStore` seam
+- Keep plugin-data broker grant storage as the current alpha reference implementation with accurate security warnings
+- Leave room for future `SecureCredentialStore`, `SquidoConnectCredentialStore`, and `SessionOnlyCredentialStore`
+- Do not implement secure storage, token vending, picker flows, or destination-based publishing
+
+### 0.2.7 — Connection Integration
 
 Goal: integrate the auth broker into Squido without changing publishing behavior.
 

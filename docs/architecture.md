@@ -8,13 +8,18 @@ For historical vNext planning context, see [rfc-squido-vnext-architecture.md](rf
 
 Squido's alpha implementation follows the publishing flow directly:
 
-1. `main.ts` registers commands, ribbon action, settings, status bar, and vault event listeners.
-2. `PublishModal` confirms the current note and collects a commit message.
-3. `Publisher` reads the note, derives its destination, calls GitHub, and records a successful publish.
-4. `GitHubClient` owns GitHub Contents API requests and update SHA lookup.
-5. `ManifestStore` persists settings and publish records through Obsidian plugin data.
-6. `FileEventHandler` updates already-tracked notes when vault paths or content change.
-7. `PublishStatusService` compares current content hash with the last successful publish hash.
+1. `main.ts` owns plugin lifecycle and orchestration: service construction, command/ribbon registration, settings tab registration, status refresh, and vault event wiring.
+2. `auth/GitHubConnectionController` owns GitHub App connection state, broker polling, stored broker-grant verification, pending recovery, and disconnect behavior.
+3. `auth/BrokerAuthClient` owns broker HTTP requests and response normalization.
+4. `credentials/PluginDataCredentialStore` is the current cross-platform credential-store seam. It stores the broker grant through existing plugin data and keeps the future storage backend swap isolated.
+5. `settings/` owns Settings UI sections for GitHub App connection, manual PAT publishing, and Developer diagnostics.
+6. `diagnostics/buildInfo.ts` owns generated build-info loading for non-release Developer diagnostics.
+7. `PublishModal` confirms the current note and collects a commit message.
+8. `Publisher` reads the note, derives its destination, calls GitHub, and records a successful publish.
+9. `GitHubClient` owns GitHub Contents API requests and update SHA lookup.
+10. `storage/ManifestStore` persists settings and publish records through Obsidian plugin data.
+11. `FileEventHandler` updates already-tracked notes when vault paths or content change.
+12. `PublishStatusService` compares current content hash with the last successful publish hash.
 
 ## Canonical docs
 
