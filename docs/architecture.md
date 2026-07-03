@@ -27,6 +27,7 @@ Squido's alpha implementation follows the publishing flow directly:
 - [Publish manifest](publish-manifest.md): current alpha manifest and vNext manifest planning.
 - [Connections and destinations](destinations.md): Connection, Destination, Rule, and destination-based publishing model.
 - [GitHub import workflow](github-import-workflow.md): planned Markdown import, duplicate detection, update, and conflict workflows.
+- [Squido Connect Local Agent RFC](rfc-squido-connect-local-agent.md): future Mac-first local auth agent concept for secure provider authentication.
 - [Roadmap](../ROADMAP.md): milestone sequence and implementation boundaries.
 
 ## Development diagnostics
