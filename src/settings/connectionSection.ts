@@ -201,7 +201,7 @@ function statusLabel(status: SquidoSettings["githubAppConnection"]["status"]): s
 
 function effectiveConnectionStatus(settings: SquidoSettings): GitHubAppConnectionStatus {
   const connection = settings.githubAppConnection;
-  if (connection.status === "pending" && connection.expires_at && Date.now() > Date.parse(connection.expires_at)) {
+  if (connection.status === "pending" && isPendingConnectionExpiredOrInvalid(connection)) {
     return "expired";
   }
 
@@ -211,14 +211,19 @@ function effectiveConnectionStatus(settings: SquidoSettings): GitHubAppConnectio
 function shouldAutoRefreshPendingConnection(settings: SquidoSettings): boolean {
   const connection = settings.githubAppConnection;
   if (connection.status !== "pending") return false;
-  if (!connection.flow_id || !connection.expires_at) return false;
-  if (connection.expires_at && Date.now() > Date.parse(connection.expires_at)) return false;
+  if (!connection.flow_id || isPendingConnectionExpiredOrInvalid(connection)) return false;
   if (!connection.last_status_checked_at) return true;
 
   const checkedAt = Date.parse(connection.last_status_checked_at);
   if (!Number.isFinite(checkedAt)) return true;
 
   return Date.now() - checkedAt > 3000;
+}
+
+function isPendingConnectionExpiredOrInvalid(connection: SquidoSettings["githubAppConnection"]): boolean {
+  if (!connection.expires_at) return true;
+  const expiresAt = Date.parse(connection.expires_at);
+  return !Number.isFinite(expiresAt) || Date.now() > expiresAt;
 }
 
 function statusUrlFor(settings: SquidoSettings): string {

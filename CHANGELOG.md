@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Added device/session id to broker start, verification, and revocation requests.
 - Added broker grant revocation attempt on GitHub App disconnect while preserving local disconnect behavior.
 - Added support for broker grant rotation and expired/revoked verification responses.
+- Fixed stale pending GitHub App connection state so missing or invalid expiration metadata becomes expired instead of leaving Connect GitHub disabled indefinitely.
 - Inserted broker-grant hardening as the next connection milestone before token vending, repository picker calls, or GitHub App credentialed publishing.
 - Clarified that current alpha broker grants are durable local session artifacts until broker-side expiration, revocation, device/session binding, and rotation are implemented.
 - Bumped the development build version to `0.2.6-alpha` for the modular architecture cleanup milestone.

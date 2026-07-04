@@ -29,16 +29,16 @@ export class GitHubConnectionController {
       return;
     }
 
-    if (settings.githubAppConnection.status === "pending" && !isConnectionExpired(settings.githubAppConnection)) {
+    if (isPendingConnectionActive(settings.githubAppConnection)) {
       new Notice("GitHub connection is already pending.");
       return;
     }
 
-    if (settings.githubAppConnection.status === "pending" && isConnectionExpired(settings.githubAppConnection)) {
+    if (settings.githubAppConnection.status === "pending") {
       this.stopPolling();
       await this.updateState({
         status: "expired",
-        last_error: "GitHub connection flow expired.",
+        last_error: "GitHub connection flow expired or has invalid pending metadata.",
       });
     }
 
@@ -149,25 +149,29 @@ export class GitHubConnectionController {
 
   async refreshPending(options: { showNotice?: boolean; force?: boolean } = {}): Promise<void> {
     const connection = this.options.manifestStore.getSettings().githubAppConnection;
+    const flowId = connection.flow_id;
+    const expiresAt = connection.expires_at;
 
-    if (connection.status !== "pending" || !connection.flow_id || !connection.expires_at) {
+    if (connection.status !== "pending") {
       if (options.showNotice) new Notice("No pending GitHub connection to refresh.");
       return;
     }
 
-    if (isConnectionExpired(connection)) {
+    if (!flowId || !expiresAt || isTimestampExpiredOrInvalid(expiresAt)) {
       this.stopPolling();
       await this.updateState({
         status: "expired",
-        last_error: "GitHub connection flow expired.",
+        last_error: flowId
+          ? "GitHub connection flow expired."
+          : "GitHub connection flow has invalid pending metadata.",
       });
-      if (options.showNotice) new Notice("GitHub connection flow expired.");
+      if (options.showNotice) new Notice("GitHub connection flow expired or is invalid.");
       return;
     }
 
     if (!options.force && !shouldRefreshPendingConnection(connection)) return;
 
-    await this.poll(connection.flow_id, connection.expires_at);
+    await this.poll(flowId, expiresAt);
 
     if (options.showNotice && this.options.manifestStore.getSettings().githubAppConnection.status === "pending") {
       new Notice("GitHub connection is still pending.");
@@ -176,20 +180,24 @@ export class GitHubConnectionController {
 
   resumePending(): void {
     const connection = this.options.manifestStore.getSettings().githubAppConnection;
-    if (connection.status !== "pending" || !connection.flow_id || !connection.expires_at) return;
+    const flowId = connection.flow_id;
+    const expiresAt = connection.expires_at;
+    if (connection.status !== "pending") return;
 
-    if (isConnectionExpired(connection)) {
+    if (!flowId || !expiresAt || isTimestampExpiredOrInvalid(expiresAt)) {
       void this.updateState({
         status: "expired",
-        last_error: "GitHub connection flow expired.",
+        last_error: flowId
+          ? "GitHub connection flow expired."
+          : "GitHub connection flow has invalid pending metadata.",
       });
       return;
     }
 
     this.startPolling(
-      connection.flow_id,
+      flowId,
       connection.poll_interval_seconds ?? 2,
-      connection.expires_at,
+      expiresAt,
     );
   }
 
@@ -209,11 +217,11 @@ export class GitHubConnectionController {
   }
 
   private async poll(flowId: string, expiresAt: string): Promise<void> {
-    if (Date.now() > Date.parse(expiresAt)) {
+    if (isTimestampExpiredOrInvalid(expiresAt)) {
       this.stopPolling();
       await this.updateState({
         status: "expired",
-        last_error: "GitHub connection flow expired.",
+        last_error: "GitHub connection flow expired or has invalid pending metadata.",
       });
       return;
     }
@@ -427,7 +435,17 @@ function sanitizeGitHubConnectionMetadata(
 }
 
 function isConnectionExpired(connection: GitHubAppConnectionState): boolean {
-  return Boolean(connection.expires_at && Date.now() > Date.parse(connection.expires_at));
+  if (!connection.expires_at) return true;
+  return isTimestampExpiredOrInvalid(connection.expires_at);
+}
+
+function isPendingConnectionActive(connection: GitHubAppConnectionState): boolean {
+  return connection.status === "pending" && Boolean(connection.flow_id) && !isConnectionExpired(connection);
+}
+
+function isTimestampExpiredOrInvalid(value: string): boolean {
+  const timestamp = Date.parse(value);
+  return !Number.isFinite(timestamp) || Date.now() > timestamp;
 }
 
 function shouldRefreshPendingConnection(connection: GitHubAppConnectionState): boolean {
