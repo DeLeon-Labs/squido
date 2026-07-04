@@ -8,6 +8,7 @@ This is the short Squido security checklist. Detailed auth flow planning lives i
 - The manual PAT fallback stores its token in Obsidian plugin data because Obsidian does not provide a universal plugin secrets store.
 - Use a fine-grained personal access token restricted to the destination repository with only the Contents permission needed to write files.
 - Broker grants are stored in plugin data only as an alpha/testing compromise. They are not GitHub tokens, but they are still sensitive connection artifacts.
+- The current alpha broker grant should be treated as a durable local session artifact until broker-side expiration, revocation, device/session binding, and rotation are implemented.
 - Do not share or commit Squido `data.json`.
 - Treat vault backups and synced Obsidian configuration as sensitive if they include plugin data.
 
@@ -21,6 +22,7 @@ This is the short Squido security checklist. Detailed auth flow planning lives i
 - If secure storage is unavailable, Squido must not silently fall back to plaintext plugin data for persistent GitHub App login.
 - Squido's accepted local storage direction is [ADR-0001: Secure credential storage strategy](decisions/ADR-0001-secure-credential-storage.md). The supporting research is in [Secure credential storage investigation](credential-storage-investigation.md).
 - Token vending must wait until Squido has a `CredentialStore` abstraction or an explicit session-only fallback.
+- Broker-grant hardening should happen before token vending: generated device/session identifiers, revocation, expiration, and grant rotation reduce the risk of plaintext alpha storage without claiming secure persistence.
 
 ## Publishing safety
 

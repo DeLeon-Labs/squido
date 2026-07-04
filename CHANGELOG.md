@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- Inserted broker-grant hardening as the next connection milestone before token vending, repository picker calls, or GitHub App credentialed publishing.
+- Clarified that current alpha broker grants are durable local session artifacts until broker-side expiration, revocation, device/session binding, and rotation are implemented.
 - Bumped the development build version to `0.2.6-alpha` for the modular architecture cleanup milestone.
 - Modularized source ownership for GitHub App connection orchestration, settings sections, credential storage seam, build diagnostics, and manifest storage without changing runtime behavior.
 - Bumped the development build version to `0.2.2-alpha.2` for broker-grant connection verification.

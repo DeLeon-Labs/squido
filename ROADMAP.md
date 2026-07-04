@@ -113,7 +113,33 @@ Goal: modularize the Squido plugin before adding token vending, repository picke
 - Leave room for future `SecureCredentialStore`, `SquidoConnectCredentialStore`, and `SessionOnlyCredentialStore`
 - Do not implement secure storage, token vending, picker flows, or destination-based publishing
 
-### 0.2.7 — Connection Integration
+### 0.2.7 — Broker grant hardening
+
+Goal: make broker grants revocable, device/session-aware connection artifacts before token vending, repository picker calls, or GitHub App credentialed publishing.
+
+The current alpha broker grant proves the reconnect architecture, but it is stored in plugin data and behaves like a durable local session artifact. This milestone hardens that model without changing publishing behavior.
+
+Acceptance criteria:
+
+- Squido generates or stores a stable random device/session identifier for the local plugin installation
+- Broker grants are associated with a connection, installation, account, and device/session identifier
+- Broker verifies the grant and device/session identifier together
+- Broker stores only hashed grant material where practical
+- Broker can expire or revoke grants
+- Broker can rotate grants after successful verification or future token exchange
+- Disconnect revokes or invalidates the current broker grant where practical
+- Squido Settings clearly distinguishes verified connection metadata from secure persistent storage
+- Manual PAT publishing remains separate and untouched
+
+Explicit non-goals:
+
+- Token vending for publishing
+- Repository, branch, or folder pickers
+- Destination-based publishing
+- Secure OS-backed storage implementation
+- Squido Connect local agent
+
+### 0.2.8 — Connection Integration
 
 Goal: integrate the auth broker into Squido without changing publishing behavior.
 

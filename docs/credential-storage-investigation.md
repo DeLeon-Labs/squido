@@ -16,7 +16,7 @@ That means Squido's long-term architecture should separate credential storage by
 
 - Desktop: use an Obsidian-compatible secure storage adapter if Electron APIs are accessible and safe to use.
 - Mobile: do not assume secure persistent credential storage is available unless Obsidian exposes it or Squido adopts a product-level mobile integration strategy.
-- All platforms: keep broker grants short-lived or revocable enough that plaintext alpha storage is tolerable only as an explicitly labeled alpha/testing compromise.
+- All platforms: keep broker grants short-lived, revocable, and bound to a generated device/session identifier so plaintext alpha storage is tolerable only as an explicitly labeled alpha/testing compromise.
 
 ## What is sensitive?
 
@@ -128,7 +128,7 @@ Complexity: medium/high because it requires connection records, grant rotation, 
 
 Maintenance: medium/high, but it aligns with Squido's broker architecture.
 
-Suitability: recommended long-term complement to Option B. The broker grant should be treated like a revocable device session, not a permanent credential.
+Suitability: recommended long-term complement to Option B. The broker grant should be treated like a revocable device/session record, not a permanent credential.
 
 ## Recommendation
 
@@ -136,7 +136,7 @@ Suitability: recommended long-term complement to Option B. The broker grant shou
 
 - Store broker grant in plugin data only as an explicit alpha/testing compromise.
 - Label the storage limitation in Settings and docs.
-- Keep broker grants revocable and avoid giving them publishing power by themselves.
+- Keep broker grants revocable, device/session-bound, and avoid giving them publishing power by themselves.
 - Do not store installation tokens in plugin data.
 - Manual PAT remains advanced/manual and must warn users about local storage.
 
@@ -163,6 +163,8 @@ Suitability: recommended long-term complement to Option B. The broker grant shou
 - Is `safeStorage` available from the plugin context directly, or only through main-process APIs that Obsidian does not expose?
 - What secure-storage behavior is acceptable on Linux when secret service is temporarily unavailable?
 - Should the broker grant be rotated after every successful verification/token exchange?
+- What grant expiration policy is acceptable for alpha, beta, and stable?
+- Should device/session identifiers be user-visible and user-renamable for revocation UX?
 - Can Obsidian expose a mobile secure-storage plugin API in the future, or should Squido keep mobile GitHub App auth session-only until then?
 
 ## References checked

@@ -98,7 +98,8 @@ After connection integration, Squido should support multiple GitHub publishing d
 
 Connection integration is intentionally narrower than Destination-Based Publishing:
 
-- 0.2.7 proves Connect GitHub, Disconnect, repository picker, branch picker, folder picker, PAT migration, and the existing publish button.
+- 0.2.7 hardens broker grants with device/session binding, expiration, revocation, and rotation before token vending or picker calls.
+- 0.2.8 proves Connect GitHub, Disconnect, repository picker, branch picker, folder picker, PAT migration, and the existing publish button.
 - 0.3.x turns the single implicit destination into explicit destination records and adds destination selection/routing.
 
 Planned work:

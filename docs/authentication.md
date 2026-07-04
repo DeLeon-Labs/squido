@@ -81,6 +81,22 @@ Squido's accepted storage direction is documented in [ADR-0001: Secure credentia
 
 The current alpha implementation uses `PluginDataCredentialStore` as the reference implementation because plugin data is the best currently known cross-platform option within the constraints of the Obsidian plugin API. This is not secure persistent storage. The abstraction leaves room for future `SecureCredentialStore`, `SquidoConnectCredentialStore`, and `SessionOnlyCredentialStore` backends without changing GitHub connection orchestration.
 
+### Broker grant hardening
+
+The current broker grant should be treated as an alpha session artifact, not a proof of secure persistent login. It allows Squido to verify a previously completed GitHub App installation without reopening GitHub, but it currently depends on local plugin-data storage.
+
+Before token vending, repository discovery, or GitHub App credentialed publishing, Squido and the broker should harden the grant model:
+
+- Squido should generate or store a stable random device/session identifier for the local plugin installation.
+- The broker should bind each broker grant to a connection, installation, account, and device/session identifier.
+- The broker should verify the grant and device/session identifier together.
+- The broker should store only hashed grant material where practical.
+- Grants should be revocable and expire according to a documented policy.
+- Grants should rotate after successful verification or future token exchange where practical.
+- Disconnect should invalidate the current local grant with the broker where practical.
+
+This does not make plugin data secure. It reduces blast radius, supports revocation, and gives the broker enough structure to audit and retire individual local sessions. Secure OS-backed storage or Squido Connect remains a future improvement.
+
 ## Broker responsibility boundary
 
 The auth broker is infrastructure, not Squido product logic. It exists because GitHub App private keys, broker signing secrets, and token-exchange credentials cannot safely live inside the Obsidian plugin.
@@ -95,13 +111,13 @@ Squido owns note content, destinations, bindings, manifests, publish rules, impo
 
 ## Connection integration milestone
 
-The implementation bridge after broker, credential storage, modular cleanup, and picker planning is **0.2.7 — Connection Integration**.
+The implementation bridge after broker, credential storage, modular cleanup, grant hardening, and picker planning is **0.2.8 — Connection Integration**.
 
 Its purpose is to integrate the broker into Squido without changing publishing behavior. Users should be able to connect GitHub, disconnect GitHub, choose a granted repository, choose a branch, choose a folder/path, and continue using the existing **Publish current note** action.
 
 This milestone must also migrate existing manual PAT users cleanly. The PAT fallback can remain under **Advanced**, but existing users should not lose their current publish settings or need to recreate them manually.
 
-0.2.7 should not introduce multiple destinations, a publishing router, Lighthouse integration, import workflows, or website workflows. Those features depend on a working connection integration but belong to later milestones.
+0.2.8 should not introduce multiple destinations, a publishing router, Lighthouse integration, import workflows, or website workflows. Those features depend on a working connection integration but belong to later milestones.
 
 **0.2.2 — GitHub App Authentication MVP** proves only the trust flow: a user can click **Connect GitHub**, install or authorize the Squido GitHub App, return through the broker, and see Squido marked **Connected**. It does not enable publishing, repository discovery, branch/folder picking, or destination setup yet.
 
