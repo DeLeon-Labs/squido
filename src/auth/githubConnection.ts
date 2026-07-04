@@ -42,12 +42,14 @@ export class GitHubConnectionController {
       });
     }
 
+    const deviceId = await this.getOrCreateDeviceId();
     const client = this.createClient(settings.authBrokerBaseUrl);
 
     try {
-      const start = await client.startGitHubAuth(this.options.pluginVersion);
+      const start = await client.startGitHubAuth(this.options.pluginVersion, deviceId);
       await this.updateState({
         status: "pending",
+        device_id: deviceId,
         flow_id: start.flow_id,
         auth_url: start.auth_url,
         expires_at: start.expires_at,
@@ -75,9 +77,27 @@ export class GitHubConnectionController {
 
   async disconnect(): Promise<void> {
     this.stopPolling();
+    const settings = this.options.manifestStore.getSettings();
+    const connection = settings.githubAppConnection.connection;
+    const brokerGrant = await this.options.credentialStore.get(GITHUB_BROKER_GRANT_CREDENTIAL);
+    let revokeWarning: string | null = null;
+
+    if (brokerGrant) {
+      try {
+        const client = this.createClient(connection?.brokerBaseUrl ?? settings.authBrokerBaseUrl);
+        const revocation = await client.revokeGitHubConnection(brokerGrant, settings.githubAppConnection.device_id);
+        if (revocation.status === "failed") {
+          revokeWarning = revocation.error ?? "Broker grant revocation failed.";
+        }
+      } catch (error) {
+        revokeWarning = error instanceof Error ? error.message : "Broker grant revocation failed.";
+      }
+    }
+
     await this.options.credentialStore.delete(GITHUB_BROKER_GRANT_CREDENTIAL);
     await this.updateState({
       status: "not_connected",
+      device_id: settings.githubAppConnection.device_id,
       flow_id: undefined,
       auth_url: undefined,
       expires_at: undefined,
@@ -90,6 +110,11 @@ export class GitHubConnectionController {
       last_status_result: undefined,
       connection: undefined,
     });
+    if (revokeWarning) {
+      new Notice(`GitHub connection cleared locally. Broker revoke warning: ${revokeWarning}`, 12000);
+      return;
+    }
+
     new Notice("GitHub connection cleared locally.");
   }
 
@@ -234,9 +259,11 @@ export class GitHubConnectionController {
       case "complete": {
         this.stopPolling();
         const brokerBaseUrl = this.options.manifestStore.getSettings().authBrokerBaseUrl;
-        const connection = sanitizeGitHubConnectionMetadata(status.connection, brokerBaseUrl);
+        const deviceId = await this.getOrCreateDeviceId();
+        const connection = sanitizeGitHubConnectionMetadata(status.connection, brokerBaseUrl, deviceId);
         await this.updateState({
           status: "connected",
+          device_id: deviceId,
           flow_id: status.flow_id,
           expires_at: status.expires_at,
           completed_at: new Date().toISOString(),
@@ -277,12 +304,31 @@ export class GitHubConnectionController {
 
     if (!brokerGrant) return false;
 
+    const deviceId = await this.getOrCreateDeviceId();
     const client = this.createClient(connection?.brokerBaseUrl ?? settings.authBrokerBaseUrl);
 
     try {
-      const verification = await client.verifyGitHubConnection(brokerGrant);
+      const verification = await client.verifyGitHubConnection(brokerGrant, deviceId);
 
-      if (verification.status === "failed") {
+      if (verification.status !== "connected") {
+        if (verification.status === "expired" || verification.status === "revoked") {
+          const message = verification.error ?? `GitHub connection grant ${verification.status}. Reconnect GitHub.`;
+          await this.options.credentialStore.delete(GITHUB_BROKER_GRANT_CREDENTIAL);
+          await this.updateState({
+            status: "failed",
+            last_error: message,
+            last_verified_at: new Date().toISOString(),
+            connection: connection
+              ? {
+                  ...connection,
+                  broker_grant: undefined,
+                }
+              : undefined,
+          });
+          if (options.showNotice) new Notice(message, 10000);
+          return false;
+        }
+
         await this.updateState({
           status: "failed",
           last_error: verification.error,
@@ -294,6 +340,7 @@ export class GitHubConnectionController {
 
       await this.updateState({
         status: "connected",
+        device_id: verification.device_id ?? deviceId,
         completed_at: verification.connected_at,
         last_error: undefined,
         last_verified_at: verification.verified_at,
@@ -307,7 +354,7 @@ export class GitHubConnectionController {
             setup_action: verification.setup_action ?? undefined,
           },
           connected_at: verification.connected_at,
-        }, connection?.brokerBaseUrl ?? settings.authBrokerBaseUrl),
+        }, connection?.brokerBaseUrl ?? settings.authBrokerBaseUrl, verification.device_id ?? deviceId),
       });
 
       if (verification.broker_grant) await this.options.credentialStore.set(GITHUB_BROKER_GRANT_CREDENTIAL, verification.broker_grant);
@@ -340,14 +387,29 @@ export class GitHubConnectionController {
   private createClient(baseUrl: string): BrokerAuthClient {
     return new BrokerAuthClient(baseUrl, this.options.isDevelopmentBuild());
   }
+
+  private async getOrCreateDeviceId(): Promise<string> {
+    const settings = this.options.manifestStore.getSettings();
+    const existing = settings.githubAppConnection.device_id;
+    if (existing) return existing;
+
+    const deviceId = generateDeviceId();
+    await this.updateState({ device_id: deviceId });
+    return deviceId;
+  }
 }
 
-function sanitizeGitHubConnectionMetadata(connection: GitHubAppConnectionMetadata, brokerBaseUrl: string): GitHubAppConnectionMetadata {
+function sanitizeGitHubConnectionMetadata(
+  connection: GitHubAppConnectionMetadata,
+  brokerBaseUrl: string,
+  deviceId?: string,
+): GitHubAppConnectionMetadata {
   return {
     provider: "github",
     connection_id: connection.connection_id,
     broker_grant: connection.broker_grant,
     brokerBaseUrl,
+    device_id: connection.device_id ?? deviceId,
     account: connection.account
       ? {
           login: connection.account.login,
@@ -376,3 +438,19 @@ function shouldRefreshPendingConnection(connection: GitHubAppConnectionState): b
   return Date.now() - checkedAt > 3000;
 }
 
+function generateDeviceId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+
+  const bytes = new Uint8Array(16);
+  if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") {
+    crypto.getRandomValues(bytes);
+  } else {
+    for (let index = 0; index < bytes.length; index += 1) {
+      bytes[index] = Math.floor(Math.random() * 256);
+    }
+  }
+
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+}

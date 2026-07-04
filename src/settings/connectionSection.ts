@@ -111,6 +111,7 @@ export function renderConnectionSection(
     const pendingDetails = containerEl.createEl("details");
     pendingDetails.createEl("summary", { text: "Pending diagnostics" });
     const rows = [
+      ["Device/session ID", connection.device_id ?? "not generated"],
       ["Flow ID", connection.flow_id ?? "not set"],
       ["Status URL", connection.last_status_url ?? statusUrlFor(settings)],
       ["Last checked", connection.last_status_checked_at ?? "not checked yet"],
@@ -151,6 +152,7 @@ export function renderConnectionSection(
     const rows = [
       ["Broker URL", connection.connection.brokerBaseUrl ?? settings.authBrokerBaseUrl],
       ["Provider", connection.connection.provider],
+      ["Device/session ID", settings.githubAppConnection.device_id ?? connection.connection.device_id ?? "not generated"],
       ["Account", connection.connection.account?.login ?? connection.connection.installation.account_login ?? "not returned"],
       ["Account ID", connection.connection.account?.id ?? "not returned"],
       ["Installation ID", connection.connection.installation.id],
@@ -254,4 +256,3 @@ function indicatorColor(status: GitHubAppConnectionStatus): "gray" | "green" | "
       return "gray";
   }
 }
-

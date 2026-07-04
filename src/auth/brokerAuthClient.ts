@@ -45,6 +45,7 @@ export type GitHubConnectionVerificationResponse =
       provider: "github";
       connection_id: string;
       broker_grant?: string;
+      device_id?: string;
       account?: {
         login?: string;
         id?: string;
@@ -59,7 +60,18 @@ export type GitHubConnectionVerificationResponse =
       status: "failed";
       connection_id?: string;
       error: string;
+    }
+  | {
+      status: "expired" | "revoked";
+      connection_id?: string;
+      error?: string;
     };
+
+export interface GitHubConnectionRevocationResponse {
+  status: "revoked" | "not_found" | "not_supported" | "failed";
+  connection_id?: string;
+  error?: string;
+}
 
 export class BrokerAuthClient {
   constructor(
@@ -67,13 +79,14 @@ export class BrokerAuthClient {
     private readonly debug = false,
   ) {}
 
-  async startGitHubAuth(pluginVersion?: string): Promise<GitHubAuthStartResponse> {
+  async startGitHubAuth(pluginVersion?: string, deviceId?: string): Promise<GitHubAuthStartResponse> {
     const response = await requestUrl({
       url: brokerUrlFor(this.baseUrl, "/auth/github/start"),
       method: "POST",
       contentType: "application/json",
       body: JSON.stringify({
         client: "squido",
+        device_id: deviceId,
         platform: platformName(),
         returnMode: "poll",
         pluginVersion,
@@ -122,7 +135,7 @@ export class BrokerAuthClient {
     return normalized;
   }
 
-  async verifyGitHubConnection(brokerGrant: string): Promise<GitHubConnectionVerificationResponse> {
+  async verifyGitHubConnection(brokerGrant: string, deviceId?: string): Promise<GitHubConnectionVerificationResponse> {
     const url = brokerUrlFor(this.baseUrl, "/auth/github/connection/status");
     const response = await requestUrl({
       url,
@@ -130,18 +143,19 @@ export class BrokerAuthClient {
       contentType: "application/json",
       body: JSON.stringify({
         broker_grant: brokerGrant,
+        device_id: deviceId,
       }),
       throw: false,
     });
-
-    if (response.status < 200 || response.status >= 300) {
-      throw new Error(`Broker connection verification failed (${response.status}): ${response.text}`);
-    }
 
     const body = response.json as unknown;
     this.debugLog("raw GitHub connection verification response", body);
 
     const normalized = normalizeConnectionVerificationResponse(body);
+    if (!normalized && (response.status < 200 || response.status >= 300)) {
+      throw new Error(`Broker connection verification failed (${response.status}): ${response.text}`);
+    }
+
     if (!normalized) {
       throw new Error("Broker connection verification returned an invalid response.");
     }
@@ -149,6 +163,42 @@ export class BrokerAuthClient {
     this.debugLog("parsed GitHub connection verification", normalized);
 
     return normalized;
+  }
+
+  async revokeGitHubConnection(brokerGrant: string, deviceId?: string): Promise<GitHubConnectionRevocationResponse> {
+    const url = brokerUrlFor(this.baseUrl, "/auth/github/connection/revoke");
+    const response = await requestUrl({
+      url,
+      method: "POST",
+      contentType: "application/json",
+      body: JSON.stringify({
+        broker_grant: brokerGrant,
+        device_id: deviceId,
+      }),
+      throw: false,
+    });
+
+    const body = response.json as unknown;
+    this.debugLog("raw GitHub connection revocation response", body);
+
+    const normalized = normalizeConnectionRevocationResponse(body);
+    if (normalized) {
+      this.debugLog("parsed GitHub connection revocation", normalized);
+      return normalized;
+    }
+
+    if (response.status === 404 || response.status === 410 || response.status === 501) {
+      return {
+        status: response.status === 501 ? "not_supported" : "not_found",
+        error: response.text || `Broker revocation returned ${response.status}.`,
+      };
+    }
+
+    if (response.status < 200 || response.status >= 300) {
+      throw new Error(`Broker connection revocation failed (${response.status}): ${response.text}`);
+    }
+
+    return { status: "revoked" };
   }
 
   statusUrl(flowId: string): string {
@@ -272,6 +322,9 @@ function normalizeConnectionMetadata(value: unknown): GitHubAppConnectionMetadat
     broker_grant: typeof (value as { broker_grant?: unknown }).broker_grant === "string"
       ? (value as { broker_grant: string }).broker_grant
       : undefined,
+    device_id: typeof (value as { device_id?: unknown }).device_id === "string"
+      ? (value as { device_id: string }).device_id
+      : undefined,
     account: normalizeAccount(account),
     installation: {
       id: String(installationId),
@@ -310,6 +363,9 @@ function normalizeNestedConnectionMetadata(value: unknown): GitHubAppConnectionM
       : undefined,
     broker_grant: typeof (value as { broker_grant?: unknown }).broker_grant === "string"
       ? (value as { broker_grant: string }).broker_grant
+      : undefined,
+    device_id: typeof (value as { device_id?: unknown }).device_id === "string"
+      ? (value as { device_id: string }).device_id
       : undefined,
     account: normalizeAccount((value as { account?: unknown }).account),
     installation: {
@@ -351,6 +407,9 @@ function normalizeConnectionVerificationResponse(value: unknown): GitHubConnecti
       broker_grant: typeof (value as { broker_grant?: unknown }).broker_grant === "string"
         ? (value as { broker_grant: string }).broker_grant
         : undefined,
+      device_id: typeof (value as { device_id?: unknown }).device_id === "string"
+        ? (value as { device_id: string }).device_id
+        : undefined,
       account: normalizeAccount((value as { account?: unknown }).account) ?? null,
       installation_id: installationId,
       setup_action: typeof (value as { setup_action?: unknown }).setup_action === "string"
@@ -373,7 +432,35 @@ function normalizeConnectionVerificationResponse(value: unknown): GitHubConnecti
     };
   }
 
+  if (status === "expired" || status === "revoked") {
+    return {
+      status,
+      connection_id: typeof (value as { connection_id?: unknown }).connection_id === "string"
+        ? (value as { connection_id: string }).connection_id
+        : undefined,
+      error: typeof (value as { error?: unknown }).error === "string"
+        ? (value as { error: string }).error
+        : undefined,
+    };
+  }
+
   return null;
+}
+
+function normalizeConnectionRevocationResponse(value: unknown): GitHubConnectionRevocationResponse | null {
+  if (typeof value !== "object" || value === null) return null;
+  const status = (value as { status?: unknown }).status;
+  if (status !== "revoked" && status !== "not_found" && status !== "not_supported" && status !== "failed") return null;
+
+  return {
+    status,
+    connection_id: typeof (value as { connection_id?: unknown }).connection_id === "string"
+      ? (value as { connection_id: string }).connection_id
+      : undefined,
+    error: typeof (value as { error?: unknown }).error === "string"
+      ? (value as { error: string }).error
+      : undefined,
+  };
 }
 
 function normalizeAccount(value: unknown): GitHubAppConnectionMetadata["account"] {

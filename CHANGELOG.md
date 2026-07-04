@@ -8,6 +8,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- Bumped the development build version to `0.2.7-alpha` for Squido-side broker grant hardening.
+- Added generated GitHub App device/session identity on the Squido side for future broker grant binding.
+- Added device/session id to broker start, verification, and revocation requests.
+- Added broker grant revocation attempt on GitHub App disconnect while preserving local disconnect behavior.
+- Added support for broker grant rotation and expired/revoked verification responses.
 - Inserted broker-grant hardening as the next connection milestone before token vending, repository picker calls, or GitHub App credentialed publishing.
 - Clarified that current alpha broker grants are durable local session artifacts until broker-side expiration, revocation, device/session binding, and rotation are implemented.
 - Bumped the development build version to `0.2.6-alpha` for the modular architecture cleanup milestone.

@@ -28,6 +28,7 @@ export interface GitHubAppConnectionMetadata {
   connection_id?: string;
   broker_grant?: string;
   brokerBaseUrl?: string;
+  device_id?: string;
   account?: {
     login?: string;
     id?: string;
@@ -43,6 +44,7 @@ export interface GitHubAppConnectionMetadata {
 
 export interface GitHubAppConnectionState {
   status: GitHubAppConnectionStatus;
+  device_id?: string;
   flow_id?: string;
   auth_url?: string;
   expires_at?: string;
