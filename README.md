@@ -4,7 +4,7 @@ Squido is a lightweight publishing layer for Obsidian. It manages the publishing
 
 Squido exists for a narrow job: connect Obsidian notes to configured publishing destinations, publish selected notes, remember publish state, detect later local edits, and update the same remote files when the writer republishes. GitHub is the first destination provider; Squido does not present itself as a developer-facing Git client.
 
-The project is experimental. The first release was `0.1.0-alpha`; the current development build is `0.2.7-alpha`, focused on broker-grant hardening before token vending, picker flows, or GitHub App credentialed publishing.
+The project is experimental. The first release was `0.1.0-alpha`; the current development build is `0.2.7-alpha.1`, focused on broker-grant hardening before token vending, picker flows, or GitHub App credentialed publishing.
 
 ## Current alpha scope
 
