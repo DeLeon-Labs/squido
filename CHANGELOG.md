@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- Bumped the development build version to `0.2.7-alpha.2` for broker `device_session_id` contract alignment.
 - Bumped the development build version to `0.2.7-alpha.1` for the stale pending-state fix.
 - Bumped the development build version to `0.2.7-alpha` for Squido-side broker grant hardening.
 - Added generated GitHub App device/session identity on the Squido side for future broker grant binding.

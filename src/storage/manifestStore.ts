@@ -26,8 +26,10 @@ export class ManifestStore {
 
   async initialize(): Promise<void> {
     const stored = (await this.load()) as Partial<SquidoData> | null;
+    const settings = { ...DEFAULT_SETTINGS, ...stored?.settings };
+    settings.githubAppConnection = normalizeGitHubAppConnectionState(settings.githubAppConnection);
     this.data = {
-      settings: { ...DEFAULT_SETTINGS, ...stored?.settings },
+      settings,
       manifest: { ...stored?.manifest },
     };
   }
@@ -79,4 +81,28 @@ export class ManifestStore {
   private async persist(): Promise<void> {
     await this.save(structuredClone(this.data));
   }
+}
+
+function normalizeGitHubAppConnectionState(
+  connection: SquidoSettings["githubAppConnection"],
+): SquidoSettings["githubAppConnection"] {
+  const legacyDeviceId = (connection as { device_id?: unknown }).device_id;
+  const deviceSessionId = connection.device_session_id ?? (typeof legacyDeviceId === "string" ? legacyDeviceId : undefined);
+  const legacyConnectionDeviceId = connection.connection
+    ? (connection.connection as unknown as { device_id?: unknown }).device_id
+    : undefined;
+
+  return {
+    ...connection,
+    device_session_id: deviceSessionId,
+    connection: connection.connection
+      ? {
+          ...connection.connection,
+          device_session_id: connection.connection.device_session_id ??
+            (typeof legacyConnectionDeviceId === "string"
+              ? legacyConnectionDeviceId
+              : undefined),
+        }
+      : undefined,
+  };
 }

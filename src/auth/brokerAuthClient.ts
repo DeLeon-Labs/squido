@@ -45,7 +45,7 @@ export type GitHubConnectionVerificationResponse =
       provider: "github";
       connection_id: string;
       broker_grant?: string;
-      device_id?: string;
+      device_session_id?: string;
       account?: {
         login?: string;
         id?: string;
@@ -79,14 +79,15 @@ export class BrokerAuthClient {
     private readonly debug = false,
   ) {}
 
-  async startGitHubAuth(pluginVersion?: string, deviceId?: string): Promise<GitHubAuthStartResponse> {
+  async startGitHubAuth(pluginVersion?: string, deviceSessionId?: string): Promise<GitHubAuthStartResponse> {
     const response = await requestUrl({
       url: brokerUrlFor(this.baseUrl, "/auth/github/start"),
       method: "POST",
       contentType: "application/json",
       body: JSON.stringify({
         client: "squido",
-        device_id: deviceId,
+        device_session_id: deviceSessionId,
+        device_id: deviceSessionId,
         platform: platformName(),
         returnMode: "poll",
         pluginVersion,
@@ -135,7 +136,7 @@ export class BrokerAuthClient {
     return normalized;
   }
 
-  async verifyGitHubConnection(brokerGrant: string, deviceId?: string): Promise<GitHubConnectionVerificationResponse> {
+  async verifyGitHubConnection(brokerGrant: string, deviceSessionId?: string): Promise<GitHubConnectionVerificationResponse> {
     const url = brokerUrlFor(this.baseUrl, "/auth/github/connection/status");
     const response = await requestUrl({
       url,
@@ -143,7 +144,8 @@ export class BrokerAuthClient {
       contentType: "application/json",
       body: JSON.stringify({
         broker_grant: brokerGrant,
-        device_id: deviceId,
+        device_session_id: deviceSessionId,
+        device_id: deviceSessionId,
       }),
       throw: false,
     });
@@ -165,7 +167,7 @@ export class BrokerAuthClient {
     return normalized;
   }
 
-  async revokeGitHubConnection(brokerGrant: string, deviceId?: string): Promise<GitHubConnectionRevocationResponse> {
+  async revokeGitHubConnection(brokerGrant: string, deviceSessionId?: string): Promise<GitHubConnectionRevocationResponse> {
     const url = brokerUrlFor(this.baseUrl, "/auth/github/connection/revoke");
     const response = await requestUrl({
       url,
@@ -173,7 +175,8 @@ export class BrokerAuthClient {
       contentType: "application/json",
       body: JSON.stringify({
         broker_grant: brokerGrant,
-        device_id: deviceId,
+        device_session_id: deviceSessionId,
+        device_id: deviceSessionId,
       }),
       throw: false,
     });
@@ -322,9 +325,7 @@ function normalizeConnectionMetadata(value: unknown): GitHubAppConnectionMetadat
     broker_grant: typeof (value as { broker_grant?: unknown }).broker_grant === "string"
       ? (value as { broker_grant: string }).broker_grant
       : undefined,
-    device_id: typeof (value as { device_id?: unknown }).device_id === "string"
-      ? (value as { device_id: string }).device_id
-      : undefined,
+    device_session_id: normalizedDeviceSessionId(value),
     account: normalizeAccount(account),
     installation: {
       id: String(installationId),
@@ -364,9 +365,7 @@ function normalizeNestedConnectionMetadata(value: unknown): GitHubAppConnectionM
     broker_grant: typeof (value as { broker_grant?: unknown }).broker_grant === "string"
       ? (value as { broker_grant: string }).broker_grant
       : undefined,
-    device_id: typeof (value as { device_id?: unknown }).device_id === "string"
-      ? (value as { device_id: string }).device_id
-      : undefined,
+    device_session_id: normalizedDeviceSessionId(value),
     account: normalizeAccount((value as { account?: unknown }).account),
     installation: {
       id: String(installationId),
@@ -407,9 +406,7 @@ function normalizeConnectionVerificationResponse(value: unknown): GitHubConnecti
       broker_grant: typeof (value as { broker_grant?: unknown }).broker_grant === "string"
         ? (value as { broker_grant: string }).broker_grant
         : undefined,
-      device_id: typeof (value as { device_id?: unknown }).device_id === "string"
-        ? (value as { device_id: string }).device_id
-        : undefined,
+      device_session_id: normalizedDeviceSessionId(value),
       account: normalizeAccount((value as { account?: unknown }).account) ?? null,
       installation_id: installationId,
       setup_action: typeof (value as { setup_action?: unknown }).setup_action === "string"
@@ -475,4 +472,13 @@ function normalizeAccount(value: unknown): GitHubAppConnectionMetadata["account"
     id: typeof id === "string" || typeof id === "number" ? String(id) : undefined,
     type: typeof type === "string" ? type : undefined,
   };
+}
+
+function normalizedDeviceSessionId(value: unknown): string | undefined {
+  if (typeof value !== "object" || value === null) return undefined;
+  const deviceSessionId = (value as { device_session_id?: unknown }).device_session_id;
+  if (typeof deviceSessionId === "string") return deviceSessionId;
+
+  const legacyDeviceId = (value as { device_id?: unknown }).device_id;
+  return typeof legacyDeviceId === "string" ? legacyDeviceId : undefined;
 }

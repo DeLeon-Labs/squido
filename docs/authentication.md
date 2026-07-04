@@ -87,9 +87,9 @@ The current broker grant should be treated as an alpha session artifact, not a p
 
 Before token vending, repository discovery, or GitHub App credentialed publishing, Squido and the broker should harden the grant model:
 
-- Squido generates or stores a stable random device/session identifier for the local plugin installation.
+- Squido generates or stores a stable random `device_session_id` for the local plugin installation.
 - The broker should bind each broker grant to a connection, installation, account, and device/session identifier.
-- Squido sends the device/session identifier when starting a GitHub App flow, verifying a stored broker grant, or revoking a connection.
+- Squido sends `device_session_id` when starting a GitHub App flow, verifying a stored broker grant, or revoking a connection.
 - The broker should verify the grant and device/session identifier together.
 - The broker should store only hashed grant material where practical.
 - Grants should be revocable and expire according to a documented policy.
