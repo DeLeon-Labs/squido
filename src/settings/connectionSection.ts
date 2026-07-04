@@ -1,4 +1,4 @@
-import { Setting } from "obsidian";
+import { Notice, Setting } from "obsidian";
 import type SquidoPlugin from "../main";
 import type { GitHubAppConnectionStatus, SquidoSettings } from "../types";
 import { renderTextSetting } from "./textSetting";
@@ -105,24 +105,10 @@ export function renderConnectionSection(
       text: `Waiting for GitHub to complete connection. Squido is polling the broker and will expire this flow at ${connection.expires_at ?? "unknown"}.`,
     });
     containerEl.createEl("p", {
-      text: "If the app is already installed and you make no repository-access changes, GitHub may not return to Squido automatically. Open GitHub again and click Save/Update if shown, or clear this pending flow and retry from Squido.",
+      text: "If GitHub opened but Squido remains pending, copy the diagnostics below and check the broker status for this flow.",
     });
 
-    const pendingDetails = containerEl.createEl("details");
-    pendingDetails.createEl("summary", { text: "Pending diagnostics" });
-    const rows = [
-      ["Device/session ID", connection.device_session_id ?? "not generated"],
-      ["Flow ID", connection.flow_id ?? "not set"],
-      ["Status URL", connection.last_status_url ?? statusUrlFor(settings)],
-      ["Last checked", connection.last_status_checked_at ?? "not checked yet"],
-      ["Last result", connection.last_status_result ?? "not checked yet"],
-      ["Auth URL", connection.auth_url ?? "not set"],
-    ];
-    const list = pendingDetails.createEl("dl");
-    for (const [label, value] of rows) {
-      list.createEl("dt", { text: label });
-      list.createEl("dd", { text: value });
-    }
+    renderPendingDiagnostics(containerEl, settings);
   }
 
   if (effectiveStatus === "expired") {
@@ -167,6 +153,54 @@ export function renderConnectionSection(
       list.createEl("dt", { text: label });
       list.createEl("dd", { text: value });
     }
+  }
+}
+
+function renderPendingDiagnostics(containerEl: HTMLElement, settings: SquidoSettings): void {
+  const connection = settings.githubAppConnection;
+  const rows: Array<[string, string]> = [
+    ["Device/session ID", connection.device_session_id ?? "not generated"],
+    ["Flow ID", connection.flow_id ?? "not set"],
+    ["Status URL", connection.last_status_url ?? statusUrlFor(settings)],
+    ["Last checked", connection.last_status_checked_at ?? "not checked yet"],
+    ["Last result", connection.last_status_result ?? "not checked yet"],
+    ["Expires at", connection.expires_at ?? "not set"],
+    ["Auth URL", connection.auth_url ?? "not set"],
+  ];
+
+  containerEl.createEl("h4", { text: "Pending diagnostics" });
+
+  for (const [label, value] of rows) {
+    new Setting(containerEl)
+      .setName(label)
+      .setDesc(value)
+      .addButton((button) => {
+        button
+          .setButtonText("Copy")
+          .onClick(async () => {
+            await copyToClipboard(value);
+          });
+      });
+  }
+
+  new Setting(containerEl)
+    .setName("Copy full pending debug")
+    .setDesc("Copies flow id, status URL, auth URL, timestamps, and last broker status.")
+    .addButton((button) => {
+      button
+        .setButtonText("Copy debug")
+        .onClick(async () => {
+          await copyToClipboard(JSON.stringify(Object.fromEntries(rows), null, 2));
+        });
+    });
+}
+
+async function copyToClipboard(value: string): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(value);
+    new Notice("Copied.");
+  } catch {
+    new Notice("Could not copy to clipboard.");
   }
 }
 
