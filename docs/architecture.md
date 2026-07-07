@@ -28,6 +28,7 @@ Squido's alpha implementation follows the publishing flow directly:
 - [Architecture decisions](decisions.md): accepted Squido-side ADR index.
 - [Secure credential storage investigation](credential-storage-investigation.md): platform research, threat model, options, and storage recommendation before token vending.
 - [ADR-0001: Secure credential storage strategy](decisions/ADR-0001-secure-credential-storage.md): accepted direction for broker grants and future authentication material.
+- [ADR-0002: Authentication lifecycle](decisions/ADR-0002-authentication-lifecycle.md): accepted model for GitHub App installation, persistent connection, recognized device, broker session, and short-lived installation tokens.
 - [Publishing lifecycle](publishing-lifecycle.md): first publish, local edits, republish, and automation boundary.
 - [Publish manifest](publish-manifest.md): current alpha manifest and vNext manifest planning.
 - [Connections and destinations](destinations.md): Connection, Destination, Rule, and destination-based publishing model.

@@ -6,17 +6,18 @@ This document evaluates how Squido should store broker grants and future authent
 
 ## Summary
 
-Squido should not treat Obsidian plugin data as a long-term secure credential store.
+Squido should not treat Obsidian plugin data as OS secure credential storage.
 
 The current Obsidian plugin API exposes ordinary plugin persistence through `loadData()` and `saveData()`, which stores JSON data in the plugin folder as `data.json`. That is appropriate for settings, manifest data, publish bindings, and non-sensitive connection metadata. It is not a secure storage mechanism.
 
 Obsidian desktop runs in Electron and Obsidian mobile runs in Capacitor. Electron has `safeStorage`, which can encrypt local data using platform facilities on macOS, Windows, and many Linux systems. Capacitor can reach iOS Keychain and Android Keystore from native plugins, but an ordinary Obsidian community plugin does not ship its own native Capacitor plugin into the Obsidian mobile app.
 
-That means Squido's long-term architecture should separate credential storage by capability:
+That means Squido's architecture should separate credential storage by capability:
 
-- Desktop: use an Obsidian-compatible secure storage adapter if Electron APIs are accessible and safe to use.
-- Mobile: do not assume secure persistent credential storage is available unless Obsidian exposes it or Squido adopts a product-level mobile integration strategy.
-- All platforms: keep broker grants short-lived, revocable, and bound to a generated device/session identifier so plaintext alpha storage is tolerable only as an explicitly labeled alpha/testing compromise.
+- Current plugin-only reference implementation: use plugin data through Squido's `CredentialStore`, with honest documentation that this is not OS secure storage.
+- Future desktop possibility: use an Obsidian-compatible secure storage adapter if Electron APIs are accessible and safe to use.
+- Future mobile possibility: use secure storage only if Obsidian exposes it or Squido adopts a product-level mobile integration strategy.
+- All platforms: keep broker sessions revocable, rotatable, and bound to a generated device/session identifier.
 
 ## What is sensitive?
 
@@ -46,7 +47,7 @@ Those flags can guide platform behavior, but they are not credential storage API
 
 Community convention varies. Many plugins store API keys or tokens in plugin settings or local storage because it is simple and cross-platform. Obsidian Git is a representative example: its isomorphic-git path stores username and password/PAT via Obsidian local storage, while its native Git documentation recommends Git credential helpers such as `libsecret` for secure storage outside the plugin.
 
-That convention is useful for alpha/testing expectations, but Squido should not copy it as the stable public security model.
+That convention is useful context, but Squido should be more explicit about its security model: plugin data is the current plugin-only storage backend, broker sessions are revocable and rotatable, and GitHub installation tokens are never persisted.
 
 ## Platform secure storage options
 
@@ -92,7 +93,7 @@ Complexity: low.
 
 Maintenance: low.
 
-Suitability: acceptable only for alpha/dev with explicit labeling, short grant lifetime, revocation, and user warnings. Not suitable for stable public persistent GitHub App login.
+Suitability: current reference implementation under today's Obsidian plugin API constraints, with explicit labeling that plugin data is not OS secure storage. Its risk is reduced by broker-side revocation, rotation, device/session binding, and short-lived GitHub installation tokens.
 
 ### Option B — Store broker grant in platform secure storage
 
@@ -116,7 +117,7 @@ Complexity: low/medium.
 
 Maintenance: low.
 
-Suitability: good fallback when secure storage is unavailable. Should be a clear "session-only" or "Reconnect each time" mode, not a silent failure.
+Suitability: possible fallback for high-security contexts, but not the default product direction because it would weaken the user experience and does not match the current plugin-only reference implementation.
 
 ### Option D — Server-side connection session with revocable device grants
 
@@ -128,31 +129,30 @@ Complexity: medium/high because it requires connection records, grant rotation, 
 
 Maintenance: medium/high, but it aligns with Squido's broker architecture.
 
-Suitability: recommended long-term complement to Option B. The broker grant should be treated like a revocable device/session record, not a permanent credential.
+Suitability: recommended complement to Option A and any future secure-storage backend. The broker grant should be treated like a revocable device/session record, not a permanent credential.
 
 ## Recommendation
 
-### Alpha
+### Current reference implementation
 
-- Store broker grant in plugin data only as an explicit alpha/testing compromise.
-- Label the storage limitation in Settings and docs.
-- Keep broker grants revocable, device/session-bound, and avoid giving them publishing power by themselves.
-- Do not store installation tokens in plugin data.
+- Store broker session/grant information through Squido's plugin-data `CredentialStore`.
+- Label the storage limitation in Settings and docs: plugin data is not OS secure storage.
+- Keep broker sessions revocable, rotatable, device/session-bound, and avoid giving them publishing power by themselves.
+- Do not persist GitHub installation tokens.
 - Manual PAT remains advanced/manual and must warn users about local storage.
 
-### Beta
+### Future storage backends
 
-- Introduce a `CredentialStore` abstraction before token vending.
+- Keep `CredentialStore` as the storage seam.
 - Implement desktop secure storage if Electron `safeStorage` is accessible from Obsidian plugins without fragile hacks.
-- Detect unsafe Linux fallback modes such as `basic_text` and treat them as unavailable.
-- Use session-only/reconnect behavior where secure storage is unavailable.
-- Store connection metadata in plugin data; store broker grants and any refresh-capable material only in the credential store.
+- Detect unsafe Linux fallback modes such as `basic_text` and avoid claiming they are secure storage.
+- Adopt mobile secure storage only if Obsidian exposes it or Squido ships a product-level native integration.
+- Treat session-only/reconnect behavior as an optional fallback for specific contexts, not as the assumed public direction.
 
-### Stable public release
+### Public release posture
 
-- Require secure storage for persistent GitHub App login.
-- If secure storage is unavailable, offer session-only mode or explicit advanced/manual PAT mode with warnings.
-- Never silently downgrade from secure storage to plaintext plugin data.
+- Use the strongest storage backend reasonably available within the host platform.
+- Do not present plugin data as OS secure storage.
 - Keep GitHub App private key only on broker infrastructure.
 - Keep installation tokens short-lived and avoid persisting them unless there is a clearly documented secure-cache reason.
 - Support revocation, disconnect, and grant rotation.
@@ -165,7 +165,7 @@ Suitability: recommended long-term complement to Option B. The broker grant shou
 - Should the broker grant be rotated after every successful verification/token exchange?
 - What grant expiration policy is acceptable for alpha, beta, and stable?
 - Should device/session identifiers be user-visible and user-renamable for revocation UX?
-- Can Obsidian expose a mobile secure-storage plugin API in the future, or should Squido keep mobile GitHub App auth session-only until then?
+- Can Obsidian expose a mobile secure-storage plugin API in the future, or should Squido continue using the plugin-data `CredentialStore` reference implementation on mobile?
 
 ## References checked
 

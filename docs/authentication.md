@@ -13,6 +13,8 @@ Manual personal access token entry remains available under **Advanced** for loca
 
 GitHub App authentication is the strategic path because it supports selected-repository installation and avoids asking users to create developer credentials. Manual PAT mode may remain available, but only as an explicit advanced/manual mode chosen by the user.
 
+The accepted lifecycle model is [ADR-0002: Authentication lifecycle](decisions/ADR-0002-authentication-lifecycle.md). In short: GitHub owns repository permissions, the broker owns authentication metadata, and Squido owns publishing.
+
 ## Connection model
 
 A GitHub connection contains the provider, account or organization context, authentication/installation identity, and the repositories accessible through granted GitHub App permissions.
@@ -75,11 +77,11 @@ That already-installed case should not be treated as the reconnect mechanism. Af
 
 Squido must not complete an already-installed flow without a broker-verified `installation_id` tied to the current stateful connection attempt.
 
-Alpha storage note: the broker grant is not a GitHub token, but it is still sensitive because it can verify a Squido connection. Until secure storage is implemented, alpha builds may store it in Obsidian plugin data with a clear limitation. Production persistent GitHub App login should use secure local storage and must not silently claim secure persistence when secure storage is unavailable.
+Storage note: the broker grant is not a GitHub token, but it is still sensitive because it can verify a Squido connection. Obsidian does not currently expose secure cross-platform credential storage to community plugins, so Squido stores broker session/grant information through its plugin-data `CredentialStore`. This is the current reference plugin-only implementation, not a claim of OS secure storage.
 
-Squido's accepted storage direction is documented in [ADR-0001: Secure credential storage strategy](decisions/ADR-0001-secure-credential-storage.md), with platform research in [Secure credential storage investigation](credential-storage-investigation.md). Token vending should not proceed until Squido has a credential-store plan or an explicit session-only fallback.
+Squido's accepted storage direction is documented in [ADR-0001: Secure credential storage strategy](decisions/ADR-0001-secure-credential-storage.md), with platform research in [Secure credential storage investigation](credential-storage-investigation.md). Token vending should not proceed until the connection/device/session model is stable.
 
-The current alpha implementation uses `PluginDataCredentialStore` as the reference implementation because plugin data is the best currently known cross-platform option within the constraints of the Obsidian plugin API. This is not secure persistent storage. The abstraction leaves room for future `SecureCredentialStore`, `SquidoConnectCredentialStore`, and `SessionOnlyCredentialStore` backends without changing GitHub connection orchestration.
+The current implementation uses `PluginDataCredentialStore` as the reference implementation because plugin data is the best currently known cross-platform option within the constraints of the Obsidian plugin API. The abstraction leaves room for future `SecureCredentialStore`, `SquidoConnectCredentialStore`, and `SessionOnlyCredentialStore` backends if those become practical.
 
 ### Broker grant hardening
 
@@ -106,7 +108,6 @@ Canonical broker decisions live in the broker repo:
 
 - [ADR-0001: Auth broker does not handle note content](https://github.com/DeLeon-Labs/squido-auth-broker/blob/main/docs/decisions/ADR-0001-auth-broker-does-not-handle-note-content.md)
 - [ADR-0002: GitHub App authentication uses broker plus short-lived GitHub tokens](https://github.com/DeLeon-Labs/squido-auth-broker/blob/main/docs/decisions/ADR-0002-github-app-auth-uses-broker-and-short-lived-tokens.md)
-- [ADR-0003: Secure storage is required for persistent GitHub App login](https://github.com/DeLeon-Labs/squido-auth-broker/blob/main/docs/decisions/ADR-0003-secure-storage-required-for-persistent-login.md)
 
 Squido owns note content, destinations, bindings, manifests, publish rules, import/sync/conflict policy, and Lighthouse integration state. The broker owns provider trust flow state and GitHub App secret handling. Publishing content should go directly from Squido to GitHub after Squido obtains short-lived authorization.
 
@@ -147,7 +148,7 @@ Sensitive local data:
 
 The GitHub App private key belongs only on product-controlled infrastructure. Squido should store only the minimum local credential material required for the current session or fallback flow.
 
-No silent insecure credential storage: persistent GitHub App login requires secure local storage for sensitive credential material. If secure storage is unavailable, Squido should fail closed, require reconnect/session-only behavior, or ask the user to explicitly choose advanced/manual PAT mode with clear warnings. It must not silently persist sensitive GitHub App login material in plaintext plugin data while presenting the connection as secure. See broker [ADR-0003](https://github.com/DeLeon-Labs/squido-auth-broker/blob/main/docs/decisions/ADR-0003-secure-storage-required-for-persistent-login.md).
+No false security claims: Squido must document that plugin-data storage is not OS secure storage. Persistent GitHub App login should use the strongest storage backend reasonably available to the plugin. Today, that means plugin-data `CredentialStore` plus broker-side revocation, rotation, short-lived GitHub installation tokens, and a content-blind broker. See [ADR-0001](decisions/ADR-0001-secure-credential-storage.md) and [ADR-0002](decisions/ADR-0002-authentication-lifecycle.md).
 
 ## Manual token fallback
 
@@ -161,4 +162,4 @@ Manual PAT mode should remain visibly separate from the GitHub App path. It shou
 - Will the broker return short-lived installation tokens to Squido, or only broker token exchange? The preferred answer remains short-lived authorization that lets note content go directly from Obsidian/Squido to GitHub.
 - How should the plugin recover if the browser flow completes but Obsidian is closed?
 - Can Obsidian desktop plugins access Electron `safeStorage` in a supported way?
-- Should beta mobile GitHub App login be session-only until Obsidian exposes secure storage?
+- Will a future host-platform credential backend become practical enough to replace the plugin-data `CredentialStore`?

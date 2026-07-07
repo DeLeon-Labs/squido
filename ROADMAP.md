@@ -54,7 +54,7 @@ Acceptance criteria:
 - GitHub returns to a broker-controlled HTTPS setup/callback route
 - Squido polls for completion on desktop and mobile
 - Squido stores only non-sensitive connection metadata locally
-- Broker grant storage is clearly labeled as an alpha/testing compromise until the credential-store milestone
+- Broker session/grant storage is clearly labeled as plugin data, not OS secure storage
 - Manual PAT mode remains available only as an explicit advanced/manual user choice
 
 Explicit non-goals:
@@ -84,10 +84,10 @@ Goal: establish credential persistence before token vending or any additional Gi
 - Define `CredentialStore` interface and lifecycle
 - Confirm whether Electron `safeStorage` is accessible from Obsidian desktop plugins
 - Detect and reject unsafe Linux `basic_text` style fallback modes
-- Define mobile behavior when secure storage is unavailable
+- Define how the plugin-data `CredentialStore` behaves across desktop and mobile
 - Separate plugin-data metadata from sensitive broker grants, manual PATs, and future tokens
-- Decide whether beta mobile uses session-only GitHub App login
-- Do not implement token vending until this milestone has a safe storage path or explicit session-only fallback
+- Keep future storage backends possible without assuming they will exist
+- Do not implement token vending until the connection/device/session model is stable
 
 ### 0.2.5 — Repo access and picker planning
 

@@ -10,32 +10,32 @@ Squido's GitHub App architecture now uses a broker-backed connection flow. After
 
 The grant is not a GitHub token and does not authorize publishing by itself. It is still sensitive because it identifies a trusted connection and may later be used to obtain or authorize short-lived GitHub installation tokens.
 
-Obsidian plugin data is stored as ordinary JSON in the plugin folder. It is appropriate for settings, manifest records, bindings, and non-sensitive connection metadata. It is not a secure secret store.
+Obsidian plugin data is stored as ordinary JSON in the plugin folder. It is appropriate for settings, manifest records, bindings, and connection/session metadata when paired with broker-side revocation and rotation. It is not an OS secure secret store.
 
-Squido must work across Obsidian desktop and mobile. Desktop runs in Electron. Mobile runs in Capacitor. Electron has OS-backed `safeStorage`; Capacitor can reach iOS Keychain and Android Keystore only through native plugin code that ordinary Obsidian community plugins do not control.
+Squido must work across Obsidian desktop and mobile. Desktop runs in Electron. Mobile runs in Capacitor. Electron has OS-backed `safeStorage`; Capacitor can reach iOS Keychain and Android Keystore only through native plugin code that ordinary Obsidian community plugins do not control. Obsidian does not currently expose a secure cross-platform credential storage API to community plugins.
 
 ## Decision
 
 Squido will treat credential storage as a capability, not as an assumption.
 
-1. Non-sensitive connection metadata may be stored in Obsidian plugin data.
-2. Broker grants, manual PATs, future refresh-capable grants, and cached installation tokens are sensitive credential material.
-3. Alpha builds may store broker grants in plugin data only as an explicit testing compromise with clear labeling.
-4. Before token vending or stable public GitHub App login, Squido must introduce a credential-store abstraction.
+1. Connection metadata and broker session/grant material may be stored through Squido's current plugin-data `CredentialStore` implementation.
+2. The plugin-data `CredentialStore` is the current reference implementation and the best known plugin-only architecture under today's Obsidian plugin API constraints.
+3. Squido must document that plugin data is not OS secure storage and should not describe this model as absolute security.
+4. Squido should keep broker sessions revocable and rotatable to reduce the risk of local plugin-data storage.
 5. Desktop secure storage should prefer Electron `safeStorage` if it is accessible from Obsidian plugins in a supported, non-fragile way.
 6. Linux secure storage must detect unsafe/basic fallback modes and treat them as unavailable.
 7. Mobile persistent secure storage is not assumed unless Obsidian exposes a secure storage API or Squido adopts a native integration strategy.
-8. If secure storage is unavailable, Squido should offer session-only/reconnect behavior instead of silently persisting sensitive grants in plaintext.
-9. Squido must not store long-lived GitHub installation tokens in plugin data.
+8. If a stronger secure-storage backend becomes available, it may replace the plugin-data backend without changing the authentication lifecycle.
+9. Squido must not persist GitHub installation tokens in plugin data.
 10. Squido must never store the GitHub App private key, broker signing secrets, or provider client secrets in the plugin.
 
 ## Consequences
 
-- Alpha can keep testing smooth while acknowledging the storage limitation.
-- Beta/stable work must include a `CredentialStore` design before token vending.
-- Stable public releases must not present plaintext `data.json` storage as secure.
-- Mobile may have different persistence behavior from desktop unless Obsidian exposes secure storage.
-- The broker should keep grants revocable and suitable for session/device modeling.
+- Squido can keep a smooth plugin-only user experience while acknowledging the storage limitation.
+- The `CredentialStore` boundary lets future storage backends replace plugin data if better host-platform capabilities become available.
+- Public documentation must not present `data.json` storage as OS secure storage.
+- Mobile and desktop can share the same reference implementation until a better cross-platform capability exists.
+- The broker should keep sessions/grants revocable and suitable for device/session modeling.
 
 ## References
 
