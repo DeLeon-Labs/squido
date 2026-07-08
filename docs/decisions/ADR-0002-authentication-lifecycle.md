@@ -216,3 +216,36 @@ It supports additional publishing providers because connection, device, session,
 - The broker remains content-blind even when token vending is added later.
 - Current plugin-data session/grant storage remains the reference plugin-only implementation unless a stronger host-platform capability becomes available.
 - Implementation should keep route handlers and storage models aligned with connection, device, session, token, and provider boundaries.
+
+## Remaining decisions
+
+- Additional device pairing flow
+  - Still open.
+  - Future options include QR pairing, short code, existing-device approval, or fallback GitHub verification.
+  - Not required for the next implementation milestone.
+
+## Planned implementation work
+
+- AuthStore / KvAuthStore abstraction
+  - This is not an open architecture question.
+  - It is the next implementation step for the broker.
+  - It should support `ConnectionRecord`, `DeviceRecord`, and `SessionRecord`.
+
+- Token vending contract
+  - This is not needed yet.
+  - It comes after the connection/device/session lifecycle is stable.
+  - The broker will mint short-lived GitHub installation tokens later.
+  - Squido will not persist those tokens.
+
+## External dependencies
+
+- Future Obsidian secure storage API
+  - Do not depend on this.
+  - Treat it as a possible future improvement only.
+
+## Future product exploration
+
+- Squido Connect native credential service
+  - Future RFC/product direction.
+  - Not part of current implementation.
+  - Current plugin-only architecture remains valid without it.

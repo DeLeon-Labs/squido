@@ -156,10 +156,8 @@ Manual PAT support remains under **Advanced** so existing alpha users can contin
 
 Manual PAT mode should remain visibly separate from the GitHub App path. It should be a deliberate user choice, not an automatic fallback from failed secure storage.
 
-## Open questions after the connection MVP
+## Remaining decisions and planned work
 
-- What domain/subdomain will host the auth broker?
-- Will the broker return short-lived installation tokens to Squido, or only broker token exchange? The preferred answer remains short-lived authorization that lets note content go directly from Obsidian/Squido to GitHub.
-- How should the plugin recover if the browser flow completes but Obsidian is closed?
-- Can Obsidian desktop plugins access Electron `safeStorage` in a supported way?
-- Will a future host-platform credential backend become practical enough to replace the plugin-data `CredentialStore`?
+[ADR-0002: Authentication lifecycle](decisions/ADR-0002-authentication-lifecycle.md) is the source of truth for the authentication model.
+
+Remaining decisions are limited to future product behavior such as additional-device pairing. Planned implementation work, such as the broker `AuthStore` / `KvAuthStore` boundary and the future token vending contract, should not be treated as unresolved architecture. Future Obsidian secure storage APIs and Squido Connect remain possible improvements, not dependencies for the current plugin-only architecture.

@@ -82,11 +82,11 @@ Explicit non-goals:
 Goal: establish credential persistence before token vending or any additional GitHub API functionality.
 
 - Define `CredentialStore` interface and lifecycle
-- Confirm whether Electron `safeStorage` is accessible from Obsidian desktop plugins
+- Document desktop secure storage as a possible future backend if it becomes available through supported Obsidian plugin capabilities
 - Detect and reject unsafe Linux `basic_text` style fallback modes
 - Define how the plugin-data `CredentialStore` behaves across desktop and mobile
 - Separate plugin-data metadata from sensitive broker grants, manual PATs, and future tokens
-- Keep future storage backends possible without assuming they will exist
+- Keep future storage backends possible without assuming they will exist or blocking the current plugin-only architecture
 - Do not implement token vending until the connection/device/session model is stable
 
 ### 0.2.5 — Repo access and picker planning

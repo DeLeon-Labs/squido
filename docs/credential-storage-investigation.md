@@ -157,7 +157,7 @@ Suitability: recommended complement to Option A and any future secure-storage ba
 - Keep installation tokens short-lived and avoid persisting them unless there is a clearly documented secure-cache reason.
 - Support revocation, disconnect, and grant rotation.
 
-## Open implementation questions
+## Future investigation questions
 
 - Can an Obsidian desktop plugin access Electron `safeStorage` in a supported way across current Obsidian desktop builds?
 - Is `safeStorage` available from the plugin context directly, or only through main-process APIs that Obsidian does not expose?
