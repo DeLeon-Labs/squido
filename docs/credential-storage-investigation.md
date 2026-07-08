@@ -105,7 +105,7 @@ Complexity: medium/high. Desktop may be feasible through Electron `safeStorage`;
 
 Maintenance: medium/high because Linux backend availability, Electron API access, and mobile support vary.
 
-Suitability: recommended target for beta/stable where technically available.
+Suitability: possible future backend if technically available through supported Obsidian plugin capabilities. It should not be assumed as a required replacement for plugin-data storage.
 
 ### Option C — Store no persistent grant and require reconnect
 

@@ -109,7 +109,7 @@ Goal: modularize the Squido plugin before adding token vending, repository picke
 - Move manifest persistence into storage ownership
 - Move build-info loading into diagnostics ownership
 - Add a provider-agnostic `CredentialStore` seam
-- Keep plugin-data broker grant storage as the current alpha reference implementation with accurate security warnings
+- Keep plugin-data broker grant storage as the current plugin-only reference implementation with accurate security warnings
 - Leave room for future `SecureCredentialStore`, `SquidoConnectCredentialStore`, and `SessionOnlyCredentialStore`
 - Do not implement secure storage, token vending, picker flows, or destination-based publishing
 
@@ -117,7 +117,7 @@ Goal: modularize the Squido plugin before adding token vending, repository picke
 
 Goal: make broker grants revocable, device/session-aware connection artifacts before token vending, repository picker calls, or GitHub App credentialed publishing.
 
-The current alpha broker grant proves the reconnect architecture, but it is stored in plugin data and behaves like a durable local session artifact. This milestone hardens that model without changing publishing behavior.
+The current plugin-data broker grant proves the reconnect architecture and behaves like a durable local session artifact. This milestone hardens that model without changing publishing behavior or claiming OS-secure storage.
 
 Acceptance criteria:
 

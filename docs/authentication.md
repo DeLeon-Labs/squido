@@ -73,7 +73,7 @@ GitHub redirects to the configured setup URL after a first install. If **Redirec
 
 If the Squido GitHub App is already installed and the user makes no repository-access changes, GitHub may keep the user on the installation/settings page instead of redirecting back to the broker setup URL. In that case, the broker never receives the stateful `installation_id` callback and Squido cannot safely mark that install-page flow connected.
 
-That already-installed case should not be treated as the reconnect mechanism. After a successful setup callback, the broker creates a Squido broker grant tied to a `connection_id`, `installation_id`, account login/id/type, and creation timestamp. Squido stores that broker grant as the alpha connection artifact and calls the broker connection-status endpoint to verify that the GitHub App installation still exists. If verification succeeds, Squido marks the connection **Connected** without opening GitHub. If verification fails or no broker grant exists, Squido shows **Reconnect GitHub** and starts a new GitHub install/setup flow.
+That already-installed case should not be treated as the reconnect mechanism. After a successful setup callback, the broker creates a Squido broker grant tied to a `connection_id`, `installation_id`, account login/id/type, and creation timestamp. Squido stores that broker grant through its plugin-data `CredentialStore` and calls the broker connection-status endpoint to verify that the GitHub App installation still exists. If verification succeeds, Squido marks the connection **Connected** without opening GitHub. If verification fails or no broker grant exists, Squido shows **Reconnect GitHub** and starts a new GitHub install/setup flow.
 
 Squido must not complete an already-installed flow without a broker-verified `installation_id` tied to the current stateful connection attempt.
 
@@ -85,7 +85,7 @@ The current implementation uses `PluginDataCredentialStore` as the reference imp
 
 ### Broker grant hardening
 
-The current broker grant should be treated as an alpha session artifact, not a proof of secure persistent login. It allows Squido to verify a previously completed GitHub App installation without reopening GitHub, but it currently depends on local plugin-data storage.
+The current broker grant should be treated as a revocable broker session artifact, not a proof of OS-secure persistent login. It allows Squido to verify a previously completed GitHub App installation without reopening GitHub, but it currently depends on local plugin-data storage because that is the best known plugin-only storage option available to Obsidian community plugins today.
 
 Before token vending, repository discovery, or GitHub App credentialed publishing, Squido and the broker should harden the grant model:
 

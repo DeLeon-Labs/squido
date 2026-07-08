@@ -58,7 +58,7 @@ export function renderConnectionSection(
   if (connection.connection?.broker_grant) {
     new Setting(containerEl)
       .setName("Stored connection")
-      .setDesc("Verify the existing broker connection without opening GitHub. Alpha note: the broker grant is stored in Obsidian plugin data until secure storage is added.")
+      .setDesc("Verify the existing broker connection without opening GitHub. Storage note: the broker grant is stored in Obsidian plugin data, not OS secure storage.")
       .addButton((button) => {
         button
           .setButtonText("Verify connection")
