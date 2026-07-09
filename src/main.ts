@@ -107,6 +107,10 @@ export default class SquidoPlugin extends Plugin {
     await this.githubConnection.disconnect();
   }
 
+  async reauthorizeGitHubDevice(): Promise<void> {
+    await this.githubConnection.reauthorizeDevice();
+  }
+
   async clearPendingGitHubConnection(): Promise<void> {
     await this.githubConnection.clearPending();
   }

@@ -32,7 +32,13 @@ GitHub App installation fits Squido's publishing model better than OAuth scopes:
 
 Device Flow is useful for command-line or developer-style authentication, but it cannot provide the same selected-repository permission model. Squido should avoid asking users to paste OAuth Client IDs or manage developer credentials.
 
-## GitHub App configuration plan
+## Default hosted-broker model
+
+The public Squido setup should use the DeLeon Labs hosted auth broker and the DeLeon Labs-owned Squido GitHub App. Normal Squido users install the Obsidian plugin, click **Connect GitHub**, and authorize/install the Squido GitHub App through GitHub. They should not create a GitHub App, deploy a broker, configure Wrangler, or provide GitHub App IDs, private keys, client IDs, or client secrets.
+
+Broker deployment configuration belongs to DeLeon Labs operator documentation or a future Advanced Self-Hosting guide, not the default user setup.
+
+## Product GitHub App configuration plan
 
 The official Squido GitHub App should use:
 
@@ -88,7 +94,9 @@ Normal reconnect uses **Verify Connection** to verify the stored broker session.
 
 **Manage GitHub Access** opens the GitHub installation settings URL returned by the broker/GitHub installation lookup when available. It is a repository-permission management action only. It must not start setup, create a `flow_id`, or change pending state.
 
-**Disconnect This Device** revokes or clears the local broker session/device. It does not uninstall the GitHub App, remove the broker's persistent connection record, or imply that repository access changed. After device disconnect, Squido may preserve non-sensitive installation/account metadata to explain the state. Reattaching a disconnected device to an existing installation requires a future repair/reauthorization flow; it should not rely on forcing GitHub setup to redirect after no repository-access changes.
+**Disconnect This Device** revokes or clears the local broker session/device. It does not uninstall the GitHub App, remove the broker's persistent connection record, or imply that repository access changed. After device disconnect, Squido preserves non-sensitive installation/account metadata to explain the state.
+
+**Reauthorize This Device** repairs a disconnected local device when the GitHub App installation still exists. Squido sends preserved connection and installation metadata to the broker, opens a broker-mediated GitHub user verification flow, and polls the broker for completion. The broker verifies that the GitHub user can access the existing installation before issuing a fresh broker session. This does not require repository-access changes and does not use the GitHub install/update page as the reconnect mechanism.
 
 Storage note: the broker grant is not a GitHub token, but it is still sensitive because it can verify a Squido connection. Obsidian does not currently expose secure cross-platform credential storage to community plugins, so Squido stores broker session/grant information through its plugin-data `CredentialStore`. This is the current reference plugin-only implementation, not a claim of OS secure storage.
 

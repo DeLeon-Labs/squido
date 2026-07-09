@@ -61,6 +61,7 @@ export class GitHubConnectionController {
       await this.updateState({
         status: "pending",
         setupFlow: {
+          kind: "setup",
           flow_id: start.flow_id,
           auth_url: start.auth_url,
           expires_at: start.expires_at,
@@ -91,6 +92,69 @@ export class GitHubConnectionController {
       await this.updateState({
         status: "failed",
         last_error: message,
+      });
+      new Notice(message, 10000);
+    }
+  }
+
+  async reauthorizeDevice(): Promise<void> {
+    this.stopPolling();
+    const settings = this.options.manifestStore.getSettings();
+    const connection = settings.githubAppConnection.connection;
+
+    if (!connection?.installation.id) {
+      new Notice("No preserved GitHub App installation metadata is available. Use Connect GitHub for first setup.", 10000);
+      return;
+    }
+
+    const deviceSessionId = await this.getOrCreateDeviceSessionId();
+    const client = this.createClient(connection.brokerBaseUrl ?? settings.authBrokerBaseUrl);
+
+    try {
+      const start = await client.startGitHubRepair(connection, this.options.pluginVersion, deviceSessionId);
+      const startedAt = new Date().toISOString();
+      await this.updateState({
+        status: "pending",
+        setupFlow: {
+          kind: "repair",
+          flow_id: start.flow_id,
+          auth_url: start.auth_url,
+          expires_at: start.expires_at,
+          poll_interval_seconds: start.poll_interval_seconds,
+          started_at: startedAt,
+        },
+        device_session_id: deviceSessionId,
+        device: {
+          ...settings.githubAppConnection.device,
+          device_session_id: deviceSessionId,
+          status: "repair_pending",
+        },
+        session: {
+          ...settings.githubAppConnection.session,
+          broker_grant: undefined,
+          status: "revoked",
+        },
+        flow_id: start.flow_id,
+        auth_url: start.auth_url,
+        expires_at: start.expires_at,
+        poll_interval_seconds: start.poll_interval_seconds,
+        started_at: startedAt,
+        last_error: undefined,
+        last_status_checked_at: undefined,
+        last_status_url: undefined,
+        last_status_result: undefined,
+        connection,
+      });
+
+      window.open(start.auth_url, "_blank");
+      this.startPolling(start.flow_id, start.poll_interval_seconds, start.expires_at);
+      new Notice("GitHub device reauthorization started. Complete verification in the browser.", 8000);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Could not start GitHub device reauthorization.";
+      await this.updateState({
+        status: "failed",
+        last_error: message,
+        connection,
       });
       new Notice(message, 10000);
     }
@@ -164,8 +228,13 @@ export class GitHubConnectionController {
 
     this.stopPolling();
     const settings = this.options.manifestStore.getSettings();
+    const brokerGrant = await this.options.credentialStore.get(GITHUB_BROKER_GRANT_CREDENTIAL);
     await this.updateState({
-      status: settings.githubAppConnection.connection ? "connected" : "not_connected",
+      status: settings.githubAppConnection.connection
+        ? brokerGrant
+          ? "connected"
+          : "device_disconnected"
+        : "not_connected",
       setupFlow: undefined,
       flow_id: undefined,
       auth_url: undefined,

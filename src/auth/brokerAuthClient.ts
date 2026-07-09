@@ -110,6 +110,40 @@ export class BrokerAuthClient {
     return body;
   }
 
+  async startGitHubRepair(
+    connection: GitHubAppConnectionMetadata,
+    pluginVersion?: string,
+    deviceSessionId?: string,
+  ): Promise<GitHubAuthStartResponse> {
+    const response = await requestUrl({
+      url: brokerUrlFor(this.baseUrl, "/auth/github/repair/start"),
+      method: "POST",
+      contentType: "application/json",
+      body: JSON.stringify({
+        client: "squido",
+        connection_id: connection.connection_id,
+        installation_id: connection.installation.id,
+        device_session_id: deviceSessionId,
+        device_id: deviceSessionId,
+        platform: platformName(),
+        returnMode: "poll",
+        pluginVersion,
+      }),
+      throw: false,
+    });
+
+    if (response.status < 200 || response.status >= 300) {
+      throw new Error(`Broker repair start failed (${response.status}): ${response.text}`);
+    }
+
+    const body = response.json as unknown;
+    if (!isStartResponse(body)) {
+      throw new Error("Broker repair start returned an invalid response.");
+    }
+
+    return body;
+  }
+
   async getGitHubAuthStatus(flowId: string): Promise<GitHubAuthStatusResponse> {
     const url = this.statusUrl(flowId);
     const response = await requestUrl({

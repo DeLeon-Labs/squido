@@ -47,6 +47,7 @@ export interface GitHubAppConnectionMetadata {
 }
 
 export interface GitHubAppSetupFlowState {
+  kind?: "setup" | "repair";
   flow_id: string;
   auth_url: string;
   expires_at: string;

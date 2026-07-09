@@ -15,6 +15,7 @@ This is the short Squido security checklist. Detailed auth flow planning lives i
 ## Strategic GitHub App path
 
 - GitHub App auth is the strategic path because users and organizations can grant selected-repository access.
+- Default users use the DeLeon Labs hosted auth broker and DeLeon Labs-owned GitHub App; they do not configure GitHub App secrets, Wrangler vars, Cloudflare Workers, or broker deployment.
 - GitHub App private keys and broker signing secrets must never be bundled into the Obsidian plugin.
 - The auth broker is infrastructure, not a publishing service. See broker [ADR-0001](https://github.com/DeLeon-Labs/squido-auth-broker/blob/main/docs/decisions/ADR-0001-auth-broker-does-not-handle-note-content.md).
 - Squido should publish directly to GitHub after obtaining short-lived authorization. User-authored content should not be proxied through the broker.

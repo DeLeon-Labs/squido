@@ -28,6 +28,7 @@ export function renderConnectionSection(
   const statusText = statusLabel(effectiveStatus);
   const connectDisabled = effectiveStatus === "connected" || effectiveStatus === "pending" || effectiveStatus === "device_disconnected";
   const disconnectDisabled = effectiveStatus === "not_connected" || effectiveStatus === "device_disconnected";
+  const canReauthorizeDevice = effectiveStatus === "device_disconnected" && Boolean(connection.connection?.installation.id);
   const statusDescription = connection.last_error ? `${statusText}: ${connection.last_error}` : statusText;
 
   renderConnectionIndicator(containerEl, effectiveStatus, statusDescription);
@@ -82,6 +83,22 @@ export function renderConnectionSection(
       });
   }
 
+  if (effectiveStatus === "device_disconnected") {
+    new Setting(containerEl)
+      .setName("Device repair")
+      .setDesc("Reauthorize this local device against the existing GitHub App installation. This does not change repository access.")
+      .addButton((button) => {
+        button
+          .setButtonText("Reauthorize This Device")
+          .setCta()
+          .setDisabled(!canReauthorizeDevice)
+          .onClick(async () => {
+            await plugin.reauthorizeGitHubDevice();
+            redisplay();
+          });
+      });
+  }
+
   if (effectiveStatus === "pending") {
     if (shouldAutoRefreshPendingConnection(settings)) {
       void plugin.refreshGitHubConnectionStatus({ showNotice: false });
@@ -115,11 +132,16 @@ export function renderConnectionSection(
       });
 
     const setupFlow = currentSetupFlow(connection);
+    const flowKind = setupFlow?.kind === "repair" ? "repair" : "setup";
     containerEl.createEl("p", {
-      text: `Waiting for GitHub to complete setup. Squido is polling the broker and will expire this bootstrap/repair flow at ${setupFlow?.expires_at ?? "unknown"}.`,
+      text: flowKind === "repair"
+        ? `Waiting for GitHub to reauthorize this device. Squido is polling the broker and will expire this repair flow at ${setupFlow?.expires_at ?? "unknown"}.`
+        : `Waiting for GitHub to complete setup. Squido is polling the broker and will expire this bootstrap flow at ${setupFlow?.expires_at ?? "unknown"}.`,
     });
     containerEl.createEl("p", {
-      text: "GitHub setup is only for first install or repair. Normal reconnect uses Verify Connection and should not open GitHub.",
+      text: flowKind === "repair"
+        ? "This verifies GitHub access to the existing installation and does not change repository access."
+        : "GitHub setup is only for first install. Normal reconnect uses Verify Connection and should not open GitHub.",
     });
 
     renderPendingDiagnostics(containerEl, settings);
@@ -144,10 +166,12 @@ export function renderConnectionSection(
 
   if (effectiveStatus === "device_disconnected") {
     containerEl.createEl("p", {
-      text: "This device is disconnected. The GitHub App installation was not removed.",
+      text: "This device is disconnected. GitHub App access remains installed.",
     });
     containerEl.createEl("p", {
-      text: "A future repair/reauthorization flow will reconnect this device to the existing installation without requiring repository-access changes.",
+      text: connection.connection?.installation.id
+        ? "Use Reauthorize This Device to prove GitHub access to the existing installation and restore the local broker session."
+        : "No preserved installation metadata is available. Use Connect GitHub for first setup.",
     });
   }
 
@@ -193,6 +217,7 @@ function renderPendingDiagnostics(containerEl: HTMLElement, settings: SquidoSett
     ["Connection ID", connection.connection?.connection_id ?? "not connected"],
     ["Session status", connection.session?.status ?? "not active"],
     ["Flow ID", setupFlow?.flow_id ?? "not set"],
+    ["Flow kind", setupFlow?.kind ?? "setup"],
     ["Status URL", connection.last_status_url ?? statusUrlFor(settings)],
     ["Last checked", setupFlow?.last_status_checked_at ?? connection.last_status_checked_at ?? "not checked yet"],
     ["Last result", setupFlow?.last_status_result ?? connection.last_status_result ?? "not checked yet"],
