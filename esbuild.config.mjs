@@ -11,6 +11,7 @@ const developmentBuild = mode === "development";
 const outputDirectory = "dist";
 const releaseFiles = ["main.js", "manifest.json", "styles.css"];
 const execFileAsync = promisify(execFile);
+const defaultBrokerUrl = process.env.SQUIDO_AUTH_BROKER_BASE_URL ?? "https://auth.jondeleonmedia.com";
 
 if (mode === "clean") {
   await rm(outputDirectory, { recursive: true, force: true });
@@ -68,7 +69,7 @@ async function writeBuildInfo() {
     builtAt: new Date().toISOString(),
     dirty: status.length > 0,
     release: false,
-    defaultBrokerUrl: process.env.SQUIDO_AUTH_BROKER_BASE_URL ?? "http://localhost:8787",
+    defaultBrokerUrl,
   }, null, 2)}\n`);
 }
 

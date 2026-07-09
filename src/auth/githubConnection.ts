@@ -19,13 +19,24 @@ export class GitHubConnectionController {
   constructor(private readonly options: GitHubConnectionControllerOptions) {}
 
   async connect(): Promise<void> {
-    const settings = this.options.manifestStore.getSettings();
+    let settings = this.options.manifestStore.getSettings();
     if (settings.githubAppConnection.status === "connected") {
       new Notice("GitHub is already connected.");
       return;
     }
 
+    if (settings.githubAppConnection.status === "device_disconnected") {
+      new Notice("This device is disconnected. Reauthorization for an existing GitHub App installation is a future repair flow.", 12000);
+      return;
+    }
+
     if (await this.verifyStored({ showNotice: true })) {
+      return;
+    }
+
+    settings = this.options.manifestStore.getSettings();
+    if (hasLocalBrokerSession(settings.githubAppConnection)) {
+      new Notice("Stored GitHub session could not be verified. Use Connect GitHub again only if this device needs repair.", 10000);
       return;
     }
 
@@ -49,7 +60,18 @@ export class GitHubConnectionController {
       const start = await client.startGitHubAuth(this.options.pluginVersion, deviceSessionId);
       await this.updateState({
         status: "pending",
+        setupFlow: {
+          flow_id: start.flow_id,
+          auth_url: start.auth_url,
+          expires_at: start.expires_at,
+          poll_interval_seconds: start.poll_interval_seconds,
+          started_at: new Date().toISOString(),
+        },
         device_session_id: deviceSessionId,
+        device: {
+          ...settings.githubAppConnection.device,
+          device_session_id: deviceSessionId,
+        },
         flow_id: start.flow_id,
         auth_url: start.auth_url,
         expires_at: start.expires_at,
@@ -59,7 +81,6 @@ export class GitHubConnectionController {
         last_status_checked_at: undefined,
         last_status_url: undefined,
         last_status_result: undefined,
-        connection: undefined,
       });
 
       window.open(start.auth_url, "_blank");
@@ -96,8 +117,22 @@ export class GitHubConnectionController {
 
     await this.options.credentialStore.delete(GITHUB_BROKER_GRANT_CREDENTIAL);
     await this.updateState({
-      status: "not_connected",
+      status: connection ? "device_disconnected" : "not_connected",
       device_session_id: settings.githubAppConnection.device_session_id,
+      device: settings.githubAppConnection.device
+        ? {
+            ...settings.githubAppConnection.device,
+            status: "revoked",
+            updated_at: new Date().toISOString(),
+          }
+        : undefined,
+      session: {
+        ...settings.githubAppConnection.session,
+        broker_grant: undefined,
+        status: "revoked",
+        updated_at: new Date().toISOString(),
+      },
+      setupFlow: undefined,
       flow_id: undefined,
       auth_url: undefined,
       expires_at: undefined,
@@ -108,14 +143,16 @@ export class GitHubConnectionController {
       last_status_checked_at: undefined,
       last_status_url: undefined,
       last_status_result: undefined,
-      connection: undefined,
+      connection,
     });
     if (revokeWarning) {
-      new Notice(`GitHub connection cleared locally. Broker revoke warning: ${revokeWarning}`, 12000);
+      new Notice(`This device was disconnected locally. Broker revoke warning: ${revokeWarning}`, 12000);
       return;
     }
 
-    new Notice("GitHub connection cleared locally.");
+    new Notice(connection
+      ? "This device was disconnected. The GitHub App installation was not removed."
+      : "GitHub connection cleared locally.");
   }
 
   async clearPending(): Promise<void> {
@@ -125,7 +162,23 @@ export class GitHubConnectionController {
       return;
     }
 
-    await this.disconnect();
+    this.stopPolling();
+    const settings = this.options.manifestStore.getSettings();
+    await this.updateState({
+      status: settings.githubAppConnection.connection ? "connected" : "not_connected",
+      setupFlow: undefined,
+      flow_id: undefined,
+      auth_url: undefined,
+      expires_at: undefined,
+      poll_interval_seconds: undefined,
+      started_at: undefined,
+      completed_at: undefined,
+      last_error: undefined,
+      last_status_checked_at: undefined,
+      last_status_url: undefined,
+      last_status_result: undefined,
+    });
+    new Notice("Pending GitHub setup flow cleared.");
   }
 
   async refreshStatus(options: { showNotice?: boolean } = { showNotice: true }): Promise<void> {
@@ -138,19 +191,39 @@ export class GitHubConnectionController {
 
   reopenUrl(): void {
     const connection = this.options.manifestStore.getSettings().githubAppConnection;
-    if (!connection.auth_url) {
+    const setupFlow = currentSetupFlow(connection);
+    if (!setupFlow?.auth_url) {
       new Notice("No GitHub connection URL is available. Start a new connection.");
       return;
     }
 
-    window.open(connection.auth_url, "_blank");
-    new Notice("Opened the pending GitHub authorization URL.", 6000);
+    window.open(setupFlow.auth_url, "_blank");
+    new Notice("Opened the GitHub setup URL.", 6000);
+  }
+
+  manageAccess(): void {
+    const connection = this.options.manifestStore.getSettings().githubAppConnection.connection;
+    const installationId = connection?.installation.id;
+    if (!installationId) {
+      new Notice("No GitHub installation is available to manage.");
+      return;
+    }
+
+    const manageUrl = manageUrlForConnection(connection);
+    if (!manageUrl) {
+      new Notice("No GitHub installation settings URL is available.");
+      return;
+    }
+
+    window.open(manageUrl, "_blank");
+    new Notice("Opened GitHub App installation settings.", 6000);
   }
 
   async refreshPending(options: { showNotice?: boolean; force?: boolean } = {}): Promise<void> {
     const connection = this.options.manifestStore.getSettings().githubAppConnection;
-    const flowId = connection.flow_id;
-    const expiresAt = connection.expires_at;
+    const setupFlow = currentSetupFlow(connection);
+    const flowId = setupFlow?.flow_id;
+    const expiresAt = setupFlow?.expires_at;
 
     if (connection.status !== "pending") {
       if (options.showNotice) new Notice("No pending GitHub connection to refresh.");
@@ -180,8 +253,9 @@ export class GitHubConnectionController {
 
   resumePending(): void {
     const connection = this.options.manifestStore.getSettings().githubAppConnection;
-    const flowId = connection.flow_id;
-    const expiresAt = connection.expires_at;
+    const setupFlow = currentSetupFlow(connection);
+    const flowId = setupFlow?.flow_id;
+    const expiresAt = setupFlow?.expires_at;
     if (connection.status !== "pending") return;
 
     if (!flowId || !expiresAt || isTimestampExpiredOrInvalid(expiresAt)) {
@@ -196,7 +270,7 @@ export class GitHubConnectionController {
 
     this.startPolling(
       flowId,
-      connection.poll_interval_seconds ?? 2,
+      setupFlow.poll_interval_seconds ?? 2,
       expiresAt,
     );
   }
@@ -236,6 +310,11 @@ export class GitHubConnectionController {
         last_status_checked_at: new Date().toISOString(),
         last_status_url: statusUrl,
         last_status_result: status.status,
+        setupFlow: mergeSetupFlow(settings.githubAppConnection, {
+          last_status_checked_at: new Date().toISOString(),
+          last_status_url: statusUrl,
+          last_status_result: status.status,
+        }),
         last_error: undefined,
       });
       await this.applyStatus(status);
@@ -248,6 +327,11 @@ export class GitHubConnectionController {
         last_status_checked_at: new Date().toISOString(),
         last_status_url: statusUrl,
         last_status_result: "error",
+        setupFlow: mergeSetupFlow(settings.githubAppConnection, {
+          last_status_checked_at: new Date().toISOString(),
+          last_status_url: statusUrl,
+          last_status_result: "error",
+        }),
       });
     }
   }
@@ -257,6 +341,12 @@ export class GitHubConnectionController {
       case "pending":
         await this.updateState({
           status: "pending",
+          setupFlow: mergeSetupFlow(this.options.manifestStore.getSettings().githubAppConnection, {
+            flow_id: status.flow_id,
+            expires_at: status.expires_at,
+            poll_interval_seconds: status.poll_interval_seconds,
+            last_status_result: "pending",
+          }),
           flow_id: status.flow_id,
           expires_at: status.expires_at,
           poll_interval_seconds: status.poll_interval_seconds,
@@ -269,17 +359,34 @@ export class GitHubConnectionController {
         const brokerBaseUrl = this.options.manifestStore.getSettings().authBrokerBaseUrl;
         const deviceSessionId = await this.getOrCreateDeviceSessionId();
         const connection = sanitizeGitHubConnectionMetadata(status.connection, brokerBaseUrl, deviceSessionId);
+        const brokerGrant = connection.broker_grant;
         await this.updateState({
           status: "connected",
           device_session_id: deviceSessionId,
+          device: {
+            device_session_id: deviceSessionId,
+            status: "active",
+            last_verified_at: new Date().toISOString(),
+          },
+          session: brokerGrant
+            ? {
+                broker_grant: brokerGrant,
+                status: "active",
+                last_verified_at: new Date().toISOString(),
+              }
+            : this.options.manifestStore.getSettings().githubAppConnection.session,
+          setupFlow: undefined,
           flow_id: status.flow_id,
           expires_at: status.expires_at,
           completed_at: new Date().toISOString(),
-          connection,
+          connection: {
+            ...connection,
+            broker_grant: undefined,
+          },
           last_error: undefined,
           last_status_result: status.status,
         });
-        if (connection.broker_grant) await this.options.credentialStore.set(GITHUB_BROKER_GRANT_CREDENTIAL, connection.broker_grant);
+        if (brokerGrant) await this.options.credentialStore.set(GITHUB_BROKER_GRANT_CREDENTIAL, brokerGrant);
         new Notice("GitHub connected.", 8000);
         return;
       }
@@ -287,6 +394,11 @@ export class GitHubConnectionController {
         this.stopPolling();
         await this.updateState({
           status: "expired",
+          setupFlow: mergeSetupFlow(this.options.manifestStore.getSettings().githubAppConnection, {
+            flow_id: status.flow_id,
+            expires_at: status.expires_at,
+            last_status_result: "expired",
+          }),
           flow_id: status.flow_id,
           expires_at: status.expires_at,
           last_error: "GitHub connection flow expired.",
@@ -297,6 +409,10 @@ export class GitHubConnectionController {
         this.stopPolling();
         await this.updateState({
           status: "failed",
+          setupFlow: mergeSetupFlow(this.options.manifestStore.getSettings().githubAppConnection, {
+            flow_id: status.flow_id,
+            last_status_result: "failed",
+          }),
           flow_id: status.flow_id,
           last_error: status.error,
           last_status_result: "failed",
@@ -323,9 +439,15 @@ export class GitHubConnectionController {
           const message = verification.error ?? `GitHub connection grant ${verification.status}. Reconnect GitHub.`;
           await this.options.credentialStore.delete(GITHUB_BROKER_GRANT_CREDENTIAL);
           await this.updateState({
-            status: "failed",
+            status: verification.status === "expired" ? "expired" : "device_disconnected",
             last_error: message,
             last_verified_at: new Date().toISOString(),
+            session: {
+              ...settings.githubAppConnection.session,
+              broker_grant: undefined,
+              status: verification.status,
+              last_verified_at: new Date().toISOString(),
+            },
             connection: connection
               ? {
                   ...connection,
@@ -349,17 +471,30 @@ export class GitHubConnectionController {
       await this.updateState({
         status: "connected",
         device_session_id: verification.device_session_id ?? deviceSessionId,
+        device: verification.device ?? {
+          device_session_id: verification.device_session_id ?? deviceSessionId,
+          status: "active",
+          last_verified_at: verification.verified_at,
+        },
+        session: {
+          ...verification.session,
+          broker_grant: verification.broker_grant ?? brokerGrant,
+          status: verification.session?.status ?? "active",
+          last_verified_at: verification.session?.last_verified_at ?? verification.verified_at,
+        },
+        setupFlow: undefined,
         completed_at: verification.connected_at,
         last_error: undefined,
         last_verified_at: verification.verified_at,
         connection: sanitizeGitHubConnectionMetadata({
           provider: "github",
           connection_id: verification.connection_id,
-          broker_grant: verification.broker_grant ?? brokerGrant,
           account: verification.account ?? undefined,
           installation: {
             id: String(verification.installation_id),
             setup_action: verification.setup_action ?? undefined,
+            html_url: verification.installation?.html_url,
+            manage_url: verification.installation?.manage_url,
           },
           connected_at: verification.connected_at,
         }, connection?.brokerBaseUrl ?? settings.authBrokerBaseUrl, verification.device_session_id ?? deviceSessionId),
@@ -398,11 +533,18 @@ export class GitHubConnectionController {
 
   private async getOrCreateDeviceSessionId(): Promise<string> {
     const settings = this.options.manifestStore.getSettings();
-    const existing = settings.githubAppConnection.device_session_id;
+    const existing = settings.githubAppConnection.device?.device_session_id ?? settings.githubAppConnection.device_session_id;
     if (existing) return existing;
 
     const deviceSessionId = generateDeviceSessionId();
-    await this.updateState({ device_session_id: deviceSessionId });
+    await this.updateState({
+      device_session_id: deviceSessionId,
+      device: {
+        device_session_id: deviceSessionId,
+        status: "active",
+        created_at: new Date().toISOString(),
+      },
+    });
     return deviceSessionId;
   }
 }
@@ -429,18 +571,49 @@ function sanitizeGitHubConnectionMetadata(
       id: connection.installation.id,
       account_login: connection.installation.account_login,
       setup_action: connection.installation.setup_action,
+      html_url: connection.installation.html_url,
+      manage_url: connection.installation.manage_url,
     },
     connected_at: connection.connected_at,
   };
 }
 
+function manageUrlForConnection(connection: GitHubAppConnectionMetadata): string | null {
+  const brokerUrl = safeGitHubUrl(connection.installation.manage_url ?? connection.installation.html_url);
+  if (brokerUrl) return brokerUrl;
+
+  const installationId = connection.installation.id;
+  const accountLogin = connection.account?.login ?? connection.installation.account_login;
+  const accountType = connection.account?.type;
+  if (!installationId) return null;
+
+  if (accountLogin && accountType === "Organization") {
+    return `https://github.com/organizations/${encodeURIComponent(accountLogin)}/settings/installations/${encodeURIComponent(installationId)}`;
+  }
+
+  return `https://github.com/settings/installations/${encodeURIComponent(installationId)}`;
+}
+
+function safeGitHubUrl(value: string | undefined): string | null {
+  if (!value) return null;
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "https:" || url.hostname !== "github.com") return null;
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
 function isConnectionExpired(connection: GitHubAppConnectionState): boolean {
-  if (!connection.expires_at) return true;
-  return isTimestampExpiredOrInvalid(connection.expires_at);
+  const setupFlow = currentSetupFlow(connection);
+  if (!setupFlow?.expires_at) return true;
+  return isTimestampExpiredOrInvalid(setupFlow.expires_at);
 }
 
 function isPendingConnectionActive(connection: GitHubAppConnectionState): boolean {
-  return connection.status === "pending" && Boolean(connection.flow_id) && !isConnectionExpired(connection);
+  const setupFlow = currentSetupFlow(connection);
+  return connection.status === "pending" && Boolean(setupFlow?.flow_id) && !isConnectionExpired(connection);
 }
 
 function isTimestampExpiredOrInvalid(value: string): boolean {
@@ -449,11 +622,58 @@ function isTimestampExpiredOrInvalid(value: string): boolean {
 }
 
 function shouldRefreshPendingConnection(connection: GitHubAppConnectionState): boolean {
-  if (!connection.last_status_checked_at) return true;
-  const checkedAt = Date.parse(connection.last_status_checked_at);
+  const checkedAtValue = currentSetupFlow(connection)?.last_status_checked_at ?? connection.last_status_checked_at;
+  if (!checkedAtValue) return true;
+  const checkedAt = Date.parse(checkedAtValue);
   if (!Number.isFinite(checkedAt)) return true;
 
   return Date.now() - checkedAt > 3000;
+}
+
+function currentSetupFlow(connection: GitHubAppConnectionState): GitHubAppConnectionState["setupFlow"] {
+  if (connection.setupFlow) return connection.setupFlow;
+  if (
+    typeof connection.flow_id === "string" &&
+    typeof connection.auth_url === "string" &&
+    typeof connection.expires_at === "string" &&
+    typeof connection.poll_interval_seconds === "number" &&
+    typeof connection.started_at === "string"
+  ) {
+    return {
+      flow_id: connection.flow_id,
+      auth_url: connection.auth_url,
+      expires_at: connection.expires_at,
+      poll_interval_seconds: connection.poll_interval_seconds,
+      started_at: connection.started_at,
+      completed_at: connection.completed_at,
+      last_status_checked_at: connection.last_status_checked_at,
+      last_status_url: connection.last_status_url,
+      last_status_result: connection.last_status_result,
+    };
+  }
+
+  return undefined;
+}
+
+function mergeSetupFlow(
+  connection: GitHubAppConnectionState,
+  patch: Partial<NonNullable<GitHubAppConnectionState["setupFlow"]>>,
+): GitHubAppConnectionState["setupFlow"] {
+  const existing = currentSetupFlow(connection);
+  if (!existing) return undefined;
+
+  return {
+    ...existing,
+    ...patch,
+  };
+}
+
+function hasLocalBrokerSession(connection: GitHubAppConnectionState): boolean {
+  return Boolean(
+    connection.connection &&
+    (connection.device?.device_session_id ?? connection.device_session_id) &&
+    (connection.session?.broker_grant ?? connection.connection.broker_grant),
+  );
 }
 
 function generateDeviceSessionId(): string {

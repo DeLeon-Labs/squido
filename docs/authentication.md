@@ -77,6 +77,19 @@ That already-installed case should not be treated as the reconnect mechanism. Af
 
 Squido must not complete an already-installed flow without a broker-verified `installation_id` tied to the current stateful connection attempt.
 
+Squido stores local GitHub App auth state as four separate concepts:
+
+- setup flow: short-lived GitHub setup/bootstrap or repair attempt;
+- connection: persistent provider/account/installation metadata;
+- device: local generated device/session identifier used for broker verification;
+- session: broker grant/session status stored through the plugin-data `CredentialStore`.
+
+Normal reconnect uses **Verify Connection** to verify the stored broker session. It should not open GitHub. GitHub setup is reserved for first install, permission repair, or recovery when no valid local broker session exists.
+
+**Manage GitHub Access** opens the GitHub installation settings URL returned by the broker/GitHub installation lookup when available. It is a repository-permission management action only. It must not start setup, create a `flow_id`, or change pending state.
+
+**Disconnect This Device** revokes or clears the local broker session/device. It does not uninstall the GitHub App, remove the broker's persistent connection record, or imply that repository access changed. After device disconnect, Squido may preserve non-sensitive installation/account metadata to explain the state. Reattaching a disconnected device to an existing installation requires a future repair/reauthorization flow; it should not rely on forcing GitHub setup to redirect after no repository-access changes.
+
 Storage note: the broker grant is not a GitHub token, but it is still sensitive because it can verify a Squido connection. Obsidian does not currently expose secure cross-platform credential storage to community plugins, so Squido stores broker session/grant information through its plugin-data `CredentialStore`. This is the current reference plugin-only implementation, not a claim of OS secure storage.
 
 Squido's accepted storage direction is documented in [ADR-0001: Secure credential storage strategy](decisions/ADR-0001-secure-credential-storage.md), with platform research in [Secure credential storage investigation](credential-storage-investigation.md). Token vending should not proceed until the connection/device/session model is stable.

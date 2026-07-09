@@ -1,6 +1,6 @@
 {
   "name": "squido",
-  "version": "0.2.7-alpha.3",
+  "version": "0.2.7-alpha.5",
   "description": "A lightweight Obsidian publishing layer for publishing selected notes directly to GitHub.",
   "main": "dist/main.js",
   "type": "module",

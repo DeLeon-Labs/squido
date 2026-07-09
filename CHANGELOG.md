@@ -8,6 +8,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- Bumped the development build version to `0.2.7-alpha.5` for GitHub installation manage URL and device-disconnect semantics.
+- Manage GitHub Access now opens broker-provided GitHub installation settings URLs when available and does not create setup flow state.
+- Disconnect This Device now preserves non-sensitive installation metadata, marks the local device/session disconnected, and does not imply the GitHub App installation was removed.
+- Bumped the development build version to `0.2.7-alpha.4` for broker connection/session model support.
+- Separated local GitHub App auth state into setup flow, connection, device, and session metadata so normal reconnect verifies the broker session without opening GitHub.
+- Renamed connection UI actions around the lifecycle model: **Verify Connection**, **Manage GitHub Access**, and **Disconnect This Device**.
 - Bumped the development build version to `0.2.7-alpha.3` for mobile-copyable pending diagnostics.
 - Bumped the development build version to `0.2.7-alpha.3` for broker `device_session_id` contract alignment.
 - Bumped the development build version to `0.2.7-alpha.1` for the stale pending-state fix.
