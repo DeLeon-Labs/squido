@@ -7,7 +7,7 @@ export const DEFAULT_SETTINGS: SquidoSettings = {
   branch: "main",
   targetFolder: "",
   commitMessageTemplate: "publish {{title}}",
-  authBrokerBaseUrl: "http://localhost:8787",
+  authBrokerBaseUrl: "https://auth.jondeleonmedia.com",
   githubAppConnection: {
     status: "not_connected",
   },
@@ -26,8 +26,10 @@ export class ManifestStore {
 
   async initialize(): Promise<void> {
     const stored = (await this.load()) as Partial<SquidoData> | null;
+    const settings = { ...DEFAULT_SETTINGS, ...stored?.settings };
+    settings.githubAppConnection = normalizeGitHubAppConnectionState(settings.githubAppConnection);
     this.data = {
-      settings: { ...DEFAULT_SETTINGS, ...stored?.settings },
+      settings,
       manifest: { ...stored?.manifest },
     };
   }
@@ -79,4 +81,65 @@ export class ManifestStore {
   private async persist(): Promise<void> {
     await this.save(structuredClone(this.data));
   }
+}
+
+function normalizeGitHubAppConnectionState(
+  connection: SquidoSettings["githubAppConnection"],
+): SquidoSettings["githubAppConnection"] {
+  const legacyFlowId = connection.flow_id;
+  const legacyDeviceId = (connection as { device_id?: unknown }).device_id;
+  const deviceSessionId = connection.device_session_id ?? (typeof legacyDeviceId === "string" ? legacyDeviceId : undefined);
+  const legacyConnectionDeviceId = connection.connection
+    ? (connection.connection as unknown as { device_id?: unknown }).device_id
+    : undefined;
+  const nestedDeviceSessionId = connection.device?.device_session_id;
+  const effectiveDeviceSessionId = nestedDeviceSessionId ?? deviceSessionId;
+  const legacyBrokerGrant = connection.connection?.broker_grant;
+  const setupFlow = connection.setupFlow ??
+    (typeof legacyFlowId === "string" &&
+      typeof connection.auth_url === "string" &&
+      typeof connection.expires_at === "string" &&
+      typeof connection.poll_interval_seconds === "number" &&
+      typeof connection.started_at === "string"
+      ? {
+          flow_id: legacyFlowId,
+          auth_url: connection.auth_url,
+          expires_at: connection.expires_at,
+          poll_interval_seconds: connection.poll_interval_seconds,
+          started_at: connection.started_at,
+          completed_at: connection.completed_at,
+          last_status_checked_at: connection.last_status_checked_at,
+          last_status_url: connection.last_status_url,
+          last_status_result: connection.last_status_result,
+        }
+      : undefined);
+
+  return {
+    ...connection,
+    setupFlow,
+    device: effectiveDeviceSessionId
+      ? {
+          ...connection.device,
+          device_session_id: effectiveDeviceSessionId,
+          last_verified_at: connection.device?.last_verified_at ?? connection.last_verified_at,
+        }
+      : connection.device,
+    session: connection.session ?? (legacyBrokerGrant
+      ? {
+          broker_grant: legacyBrokerGrant,
+          status: connection.status === "connected" ? "active" : undefined,
+          last_verified_at: connection.last_verified_at,
+        }
+      : undefined),
+    device_session_id: effectiveDeviceSessionId,
+    connection: connection.connection
+      ? {
+          ...connection.connection,
+          device_session_id: connection.connection.device_session_id ??
+            (typeof legacyConnectionDeviceId === "string"
+              ? legacyConnectionDeviceId
+              : effectiveDeviceSessionId),
+        }
+      : undefined,
+  };
 }

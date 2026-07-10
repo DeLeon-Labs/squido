@@ -7,7 +7,8 @@ export class PluginDataCredentialStore implements CredentialStore {
   async get(key: CredentialKey): Promise<string | null> {
     if (!isSameCredential(key, GITHUB_BROKER_GRANT_CREDENTIAL)) return null;
 
-    return this.manifestStore.getSettings().githubAppConnection.connection?.broker_grant ?? null;
+    const connection = this.manifestStore.getSettings().githubAppConnection;
+    return connection.session?.broker_grant ?? connection.connection?.broker_grant ?? null;
   }
 
   async set(key: CredentialKey, value: string): Promise<void> {
@@ -21,9 +22,14 @@ export class PluginDataCredentialStore implements CredentialStore {
       ...settings,
       githubAppConnection: {
         ...settings.githubAppConnection,
+        session: {
+          ...settings.githubAppConnection.session,
+          broker_grant: value,
+          status: "active",
+        },
         connection: {
           ...connection,
-          broker_grant: value,
+          broker_grant: undefined,
         },
       },
     });
@@ -34,16 +40,25 @@ export class PluginDataCredentialStore implements CredentialStore {
 
     const settings = this.manifestStore.getSettings();
     const connection = settings.githubAppConnection.connection;
-    if (!connection?.broker_grant) return;
+    const session = settings.githubAppConnection.session;
+    if (!connection?.broker_grant && !session?.broker_grant) return;
 
     await this.manifestStore.updateSettings({
       ...settings,
       githubAppConnection: {
         ...settings.githubAppConnection,
-        connection: {
-          ...connection,
-          broker_grant: undefined,
-        },
+        session: session
+          ? {
+              ...session,
+              broker_grant: undefined,
+            }
+          : undefined,
+        connection: connection
+          ? {
+              ...connection,
+              broker_grant: undefined,
+            }
+          : undefined,
       },
     });
   }
@@ -52,4 +67,3 @@ export class PluginDataCredentialStore implements CredentialStore {
 function isSameCredential(left: CredentialKey, right: CredentialKey): boolean {
   return left.provider === right.provider && left.name === right.name;
 }
-

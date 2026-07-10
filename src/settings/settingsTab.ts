@@ -22,7 +22,6 @@ export class SquidoSettingTab extends PluginSettingTab {
     renderConnectionSection(containerEl, this.plugin, settings, () => this.display());
     renderManualPatSection(containerEl, this.plugin, settings);
 
-    const buildInfo = this.plugin.getBuildInfo();
-    if (buildInfo) renderDeveloperSection(containerEl, buildInfo);
+    renderDeveloperSection(containerEl, this.plugin.getBuildInfo(), this.plugin.getBuildInfoDiagnostics());
   }
 }

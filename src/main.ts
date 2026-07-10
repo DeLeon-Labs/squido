@@ -8,7 +8,7 @@ import { ManifestStore } from "./storage/manifestStore";
 import { commitMessageFor, Publisher } from "./publisher";
 import { SquidoSettingTab } from "./settings/settingsTab";
 import { PublishStatusService } from "./status";
-import type { BuildInfo, SquidoData, SquidoSettings } from "./types";
+import type { BuildInfo, BuildInfoDiagnostics, SquidoData, SquidoSettings } from "./types";
 import { PublishModal } from "./ui/PublishModal";
 import { SquidoStatusBar } from "./ui/StatusBar";
 
@@ -20,6 +20,7 @@ export default class SquidoPlugin extends Plugin {
   private fileEvents!: FileEventHandler;
   private githubConnection!: GitHubConnectionController;
   private buildInfo: BuildInfo | null = null;
+  private buildInfoDiagnostics: BuildInfoDiagnostics | null = null;
   private connectionStateChangeHandler: (() => void) | null = null;
 
   async onload(): Promise<void> {
@@ -28,7 +29,9 @@ export default class SquidoPlugin extends Plugin {
       (data: SquidoData) => this.saveData(data),
     );
     await this.manifestStore.initialize();
-    this.buildInfo = await loadBuildInfo(this.app, this.manifest.dir);
+    const buildInfoResult = await loadBuildInfo(this.app, this.manifest.dir);
+    this.buildInfo = buildInfoResult.buildInfo;
+    this.buildInfoDiagnostics = buildInfoResult.diagnostics;
 
     const githubClient = new GitHubClient(() => this.manifestStore.getSettings().githubToken);
     this.publisher = new Publisher(this.app.vault, this.manifestStore, githubClient);
@@ -88,6 +91,10 @@ export default class SquidoPlugin extends Plugin {
     return this.buildInfo;
   }
 
+  getBuildInfoDiagnostics(): BuildInfoDiagnostics | null {
+    return this.buildInfoDiagnostics;
+  }
+
   setConnectionStateChangeHandler(handler: (() => void) | null): void {
     this.connectionStateChangeHandler = handler;
   }
@@ -98,6 +105,10 @@ export default class SquidoPlugin extends Plugin {
 
   async disconnectGitHub(): Promise<void> {
     await this.githubConnection.disconnect();
+  }
+
+  async reauthorizeGitHubDevice(): Promise<void> {
+    await this.githubConnection.reauthorizeDevice();
   }
 
   async clearPendingGitHubConnection(): Promise<void> {
@@ -114,6 +125,10 @@ export default class SquidoPlugin extends Plugin {
 
   reopenGitHubConnectionUrl(): void {
     this.githubConnection.reopenUrl();
+  }
+
+  manageGitHubAccess(): void {
+    this.githubConnection.manageAccess();
   }
 
   private async publishCurrentNote(): Promise<void> {

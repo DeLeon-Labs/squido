@@ -1,4 +1,4 @@
-import { Setting } from "obsidian";
+import { Notice, Setting } from "obsidian";
 import type SquidoPlugin from "../main";
 import type { GitHubAppConnectionStatus, SquidoSettings } from "../types";
 import { renderTextSetting } from "./textSetting";
@@ -26,8 +26,9 @@ export function renderConnectionSection(
   const connection = settings.githubAppConnection;
   const effectiveStatus = effectiveConnectionStatus(settings);
   const statusText = statusLabel(effectiveStatus);
-  const connectDisabled = effectiveStatus === "connected" || effectiveStatus === "pending";
-  const disconnectDisabled = effectiveStatus === "not_connected";
+  const connectDisabled = effectiveStatus === "connected" || effectiveStatus === "pending" || effectiveStatus === "device_disconnected";
+  const disconnectDisabled = effectiveStatus === "not_connected" || effectiveStatus === "device_disconnected";
+  const canReauthorizeDevice = effectiveStatus === "device_disconnected" && Boolean(connection.connection?.installation.id);
   const statusDescription = connection.last_error ? `${statusText}: ${connection.last_error}` : statusText;
 
   renderConnectionIndicator(containerEl, effectiveStatus, statusDescription);
@@ -47,7 +48,7 @@ export function renderConnectionSection(
     })
     .addButton((button) => {
       button
-        .setButtonText("Disconnect")
+        .setButtonText("Disconnect This Device")
         .setDisabled(disconnectDisabled)
         .onClick(async () => {
           await plugin.disconnectGitHub();
@@ -55,15 +56,44 @@ export function renderConnectionSection(
         });
     });
 
-  if (connection.connection?.broker_grant) {
+  if (connection.session?.broker_grant || connection.connection?.broker_grant) {
     new Setting(containerEl)
       .setName("Stored connection")
-      .setDesc("Verify the existing broker connection without opening GitHub. Alpha note: the broker grant is stored in Obsidian plugin data until secure storage is added.")
+      .setDesc("Verify the existing broker connection without opening GitHub. Storage note: the broker grant is stored in Obsidian plugin data, not OS secure storage.")
       .addButton((button) => {
         button
-          .setButtonText("Verify connection")
+          .setButtonText("Verify Connection")
           .onClick(async () => {
             await plugin.refreshStoredGitHubConnection();
+            redisplay();
+          });
+      });
+  }
+
+  if (connection.connection?.installation.id) {
+    new Setting(containerEl)
+      .setName("GitHub access")
+      .setDesc("Manage repository access in GitHub. This is separate from reconnecting Squido.")
+      .addButton((button) => {
+        button
+          .setButtonText("Manage GitHub Access")
+          .onClick(() => {
+            plugin.manageGitHubAccess();
+          });
+      });
+  }
+
+  if (effectiveStatus === "device_disconnected") {
+    new Setting(containerEl)
+      .setName("Device repair")
+      .setDesc("Reauthorize this local device against the existing GitHub App installation. This does not change repository access.")
+      .addButton((button) => {
+        button
+          .setButtonText("Reauthorize This Device")
+          .setCta()
+          .setDisabled(!canReauthorizeDevice)
+          .onClick(async () => {
+            await plugin.reauthorizeGitHubDevice();
             redisplay();
           });
       });
@@ -101,27 +131,20 @@ export function renderConnectionSection(
           });
       });
 
+    const setupFlow = currentSetupFlow(connection);
+    const flowKind = setupFlow?.kind === "repair" ? "repair" : "setup";
     containerEl.createEl("p", {
-      text: `Waiting for GitHub to complete connection. Squido is polling the broker and will expire this flow at ${connection.expires_at ?? "unknown"}.`,
+      text: flowKind === "repair"
+        ? `Waiting for GitHub to reauthorize this device. Squido is polling the broker and will expire this repair flow at ${setupFlow?.expires_at ?? "unknown"}.`
+        : `Waiting for GitHub to complete setup. Squido is polling the broker and will expire this bootstrap flow at ${setupFlow?.expires_at ?? "unknown"}.`,
     });
     containerEl.createEl("p", {
-      text: "If the app is already installed and you make no repository-access changes, GitHub may not return to Squido automatically. Open GitHub again and click Save/Update if shown, or clear this pending flow and retry from Squido.",
+      text: flowKind === "repair"
+        ? "This verifies GitHub access to the existing installation and does not change repository access."
+        : "GitHub setup is only for first install. Normal reconnect uses Verify Connection and should not open GitHub.",
     });
 
-    const pendingDetails = containerEl.createEl("details");
-    pendingDetails.createEl("summary", { text: "Pending diagnostics" });
-    const rows = [
-      ["Flow ID", connection.flow_id ?? "not set"],
-      ["Status URL", connection.last_status_url ?? statusUrlFor(settings)],
-      ["Last checked", connection.last_status_checked_at ?? "not checked yet"],
-      ["Last result", connection.last_status_result ?? "not checked yet"],
-      ["Auth URL", connection.auth_url ?? "not set"],
-    ];
-    const list = pendingDetails.createEl("dl");
-    for (const [label, value] of rows) {
-      list.createEl("dt", { text: label });
-      list.createEl("dd", { text: value });
-    }
+    renderPendingDiagnostics(containerEl, settings);
   }
 
   if (effectiveStatus === "expired") {
@@ -129,7 +152,7 @@ export function renderConnectionSection(
       text: "Connection did not complete. Try again.",
     });
     containerEl.createEl("p", {
-      text: "GitHub may not have returned to Squido. This can happen if the app was already installed and no repository-access changes were saved.",
+      text: "GitHub setup may not return to Squido if the app was already installed and no repository-access changes were saved. Use Verify Connection for normal reconnect.",
     });
   }
 
@@ -138,6 +161,17 @@ export function renderConnectionSection(
       text: connection.last_error
         ? `The GitHub connection failed: ${connection.last_error}`
         : "The GitHub connection failed. Start a new connection attempt or disconnect to clear the local state.",
+    });
+  }
+
+  if (effectiveStatus === "device_disconnected") {
+    containerEl.createEl("p", {
+      text: "This device is disconnected. GitHub App access remains installed.",
+    });
+    containerEl.createEl("p", {
+      text: connection.connection?.installation.id
+        ? "Use Reauthorize This Device to prove GitHub access to the existing installation and restore the local broker session."
+        : "No preserved installation metadata is available. Use Connect GitHub for first setup.",
     });
   }
 
@@ -151,13 +185,20 @@ export function renderConnectionSection(
     const rows = [
       ["Broker URL", connection.connection.brokerBaseUrl ?? settings.authBrokerBaseUrl],
       ["Provider", connection.connection.provider],
+      ["Connection ID", connection.connection.connection_id ?? "not returned"],
+      ["Connection status", connection.connection.connection_status ?? "active"],
+      ["Device/session ID", connection.device?.device_session_id ?? settings.githubAppConnection.device_session_id ?? connection.connection.device_session_id ?? "not generated"],
+      ["Device status", connection.device?.status ?? "active"],
+      ["Session status", connection.session?.status ?? "active"],
+      ["Session expires", connection.session?.expires_at ?? "not returned"],
+      ["Session last verified", connection.session?.last_verified_at ?? connection.last_verified_at ?? "not verified this session"],
       ["Account", connection.connection.account?.login ?? connection.connection.installation.account_login ?? "not returned"],
       ["Account ID", connection.connection.account?.id ?? "not returned"],
+      ["Account type", connection.connection.account?.type ?? "not returned"],
       ["Installation ID", connection.connection.installation.id],
+      ["Installation manage URL", connection.connection.installation.manage_url ?? connection.connection.installation.html_url ?? "not returned"],
       ["Setup action", connection.connection.installation.setup_action ?? "not returned"],
       ["Connected at", connection.connection.connected_at],
-      ["Last verified", connection.last_verified_at ?? "not verified this session"],
-      ["Connection ID", connection.connection.connection_id ?? "not returned"],
     ];
 
     const list = details.createEl("dl");
@@ -165,6 +206,58 @@ export function renderConnectionSection(
       list.createEl("dt", { text: label });
       list.createEl("dd", { text: value });
     }
+  }
+}
+
+function renderPendingDiagnostics(containerEl: HTMLElement, settings: SquidoSettings): void {
+  const connection = settings.githubAppConnection;
+  const setupFlow = currentSetupFlow(connection);
+  const rows: Array<[string, string]> = [
+    ["Device/session ID", connection.device?.device_session_id ?? connection.device_session_id ?? "not generated"],
+    ["Connection ID", connection.connection?.connection_id ?? "not connected"],
+    ["Session status", connection.session?.status ?? "not active"],
+    ["Flow ID", setupFlow?.flow_id ?? "not set"],
+    ["Flow kind", setupFlow?.kind ?? "setup"],
+    ["Status URL", connection.last_status_url ?? statusUrlFor(settings)],
+    ["Last checked", setupFlow?.last_status_checked_at ?? connection.last_status_checked_at ?? "not checked yet"],
+    ["Last result", setupFlow?.last_status_result ?? connection.last_status_result ?? "not checked yet"],
+    ["Expires at", setupFlow?.expires_at ?? "not set"],
+    ["Auth URL", setupFlow?.auth_url ?? "not set"],
+  ];
+
+  containerEl.createEl("h4", { text: "Pending diagnostics" });
+
+  for (const [label, value] of rows) {
+    new Setting(containerEl)
+      .setName(label)
+      .setDesc(value)
+      .addButton((button) => {
+        button
+          .setButtonText("Copy")
+          .onClick(async () => {
+            await copyToClipboard(value);
+          });
+      });
+  }
+
+  new Setting(containerEl)
+    .setName("Copy full pending debug")
+    .setDesc("Copies flow id, status URL, auth URL, timestamps, and last broker status.")
+    .addButton((button) => {
+      button
+        .setButtonText("Copy debug")
+        .onClick(async () => {
+          await copyToClipboard(JSON.stringify(Object.fromEntries(rows), null, 2));
+        });
+    });
+}
+
+async function copyToClipboard(value: string): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(value);
+    new Notice("Copied.");
+  } catch {
+    new Notice("Could not copy to clipboard.");
   }
 }
 
@@ -190,6 +283,8 @@ function statusLabel(status: SquidoSettings["githubAppConnection"]["status"]): s
       return "Pending";
     case "connected":
       return "Connected";
+    case "device_disconnected":
+      return "This device is disconnected";
     case "expired":
       return "Expired";
     case "failed":
@@ -199,7 +294,7 @@ function statusLabel(status: SquidoSettings["githubAppConnection"]["status"]): s
 
 function effectiveConnectionStatus(settings: SquidoSettings): GitHubAppConnectionStatus {
   const connection = settings.githubAppConnection;
-  if (connection.status === "pending" && connection.expires_at && Date.now() > Date.parse(connection.expires_at)) {
+  if (connection.status === "pending" && isPendingConnectionExpiredOrInvalid(connection)) {
     return "expired";
   }
 
@@ -209,8 +304,7 @@ function effectiveConnectionStatus(settings: SquidoSettings): GitHubAppConnectio
 function shouldAutoRefreshPendingConnection(settings: SquidoSettings): boolean {
   const connection = settings.githubAppConnection;
   if (connection.status !== "pending") return false;
-  if (!connection.flow_id || !connection.expires_at) return false;
-  if (connection.expires_at && Date.now() > Date.parse(connection.expires_at)) return false;
+  if (!connection.flow_id || isPendingConnectionExpiredOrInvalid(connection)) return false;
   if (!connection.last_status_checked_at) return true;
 
   const checkedAt = Date.parse(connection.last_status_checked_at);
@@ -219,12 +313,44 @@ function shouldAutoRefreshPendingConnection(settings: SquidoSettings): boolean {
   return Date.now() - checkedAt > 3000;
 }
 
+function isPendingConnectionExpiredOrInvalid(connection: SquidoSettings["githubAppConnection"]): boolean {
+  const setupFlow = currentSetupFlow(connection);
+  if (!setupFlow?.expires_at) return true;
+  const expiresAt = Date.parse(setupFlow.expires_at);
+  return !Number.isFinite(expiresAt) || Date.now() > expiresAt;
+}
+
 function statusUrlFor(settings: SquidoSettings): string {
   const baseUrl = settings.authBrokerBaseUrl.trim().replace(/\/+$/g, "");
-  const flowId = settings.githubAppConnection.flow_id;
+  const flowId = currentSetupFlow(settings.githubAppConnection)?.flow_id ?? settings.githubAppConnection.flow_id;
   if (!baseUrl || !flowId) return "not available";
 
   return `${baseUrl}/auth/github/status?flow_id=${encodeURIComponent(flowId)}`;
+}
+
+function currentSetupFlow(connection: SquidoSettings["githubAppConnection"]): SquidoSettings["githubAppConnection"]["setupFlow"] {
+  if (connection.setupFlow) return connection.setupFlow;
+  if (
+    typeof connection.flow_id === "string" &&
+    typeof connection.auth_url === "string" &&
+    typeof connection.expires_at === "string" &&
+    typeof connection.poll_interval_seconds === "number" &&
+    typeof connection.started_at === "string"
+  ) {
+    return {
+      flow_id: connection.flow_id,
+      auth_url: connection.auth_url,
+      expires_at: connection.expires_at,
+      poll_interval_seconds: connection.poll_interval_seconds,
+      started_at: connection.started_at,
+      completed_at: connection.completed_at,
+      last_status_checked_at: connection.last_status_checked_at,
+      last_status_url: connection.last_status_url,
+      last_status_result: connection.last_status_result,
+    };
+  }
+
+  return undefined;
 }
 
 function connectButtonLabel(status: GitHubAppConnectionStatus): string {
@@ -233,6 +359,8 @@ function connectButtonLabel(status: GitHubAppConnectionStatus): string {
       return "Connecting…";
     case "connected":
       return "Connected";
+    case "device_disconnected":
+      return "Reconnect unavailable";
     case "expired":
     case "failed":
       return "Reconnect GitHub";
@@ -250,8 +378,9 @@ function indicatorColor(status: GitHubAppConnectionStatus): "gray" | "green" | "
     case "failed":
     case "expired":
       return "red";
+    case "device_disconnected":
+      return "gray";
     case "not_connected":
       return "gray";
   }
 }
-

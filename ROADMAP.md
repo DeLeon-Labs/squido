@@ -54,7 +54,7 @@ Acceptance criteria:
 - GitHub returns to a broker-controlled HTTPS setup/callback route
 - Squido polls for completion on desktop and mobile
 - Squido stores only non-sensitive connection metadata locally
-- Broker grant storage is clearly labeled as an alpha/testing compromise until the credential-store milestone
+- Broker session/grant storage is clearly labeled as plugin data, not OS secure storage
 - Manual PAT mode remains available only as an explicit advanced/manual user choice
 
 Explicit non-goals:
@@ -82,12 +82,12 @@ Explicit non-goals:
 Goal: establish credential persistence before token vending or any additional GitHub API functionality.
 
 - Define `CredentialStore` interface and lifecycle
-- Confirm whether Electron `safeStorage` is accessible from Obsidian desktop plugins
+- Document desktop secure storage as a possible future backend if it becomes available through supported Obsidian plugin capabilities
 - Detect and reject unsafe Linux `basic_text` style fallback modes
-- Define mobile behavior when secure storage is unavailable
+- Define how the plugin-data `CredentialStore` behaves across desktop and mobile
 - Separate plugin-data metadata from sensitive broker grants, manual PATs, and future tokens
-- Decide whether beta mobile uses session-only GitHub App login
-- Do not implement token vending until this milestone has a safe storage path or explicit session-only fallback
+- Keep future storage backends possible without assuming they will exist or blocking the current plugin-only architecture
+- Do not implement token vending until the connection/device/session model is stable
 
 ### 0.2.5 — Repo access and picker planning
 
@@ -109,11 +109,37 @@ Goal: modularize the Squido plugin before adding token vending, repository picke
 - Move manifest persistence into storage ownership
 - Move build-info loading into diagnostics ownership
 - Add a provider-agnostic `CredentialStore` seam
-- Keep plugin-data broker grant storage as the current alpha reference implementation with accurate security warnings
+- Keep plugin-data broker grant storage as the current plugin-only reference implementation with accurate security warnings
 - Leave room for future `SecureCredentialStore`, `SquidoConnectCredentialStore`, and `SessionOnlyCredentialStore`
 - Do not implement secure storage, token vending, picker flows, or destination-based publishing
 
-### 0.2.7 — Connection Integration
+### 0.2.7 — Broker grant hardening
+
+Goal: make broker grants revocable, device/session-aware connection artifacts before token vending, repository picker calls, or GitHub App credentialed publishing.
+
+The current plugin-data broker grant proves the reconnect architecture and behaves like a durable local session artifact. This milestone hardens that model without changing publishing behavior or claiming OS-secure storage.
+
+Acceptance criteria:
+
+- Squido generates or stores a stable random device/session identifier for the local plugin installation
+- Broker grants are associated with a connection, installation, account, and device/session identifier
+- Broker verifies the grant and device/session identifier together
+- Broker stores only hashed grant material where practical
+- Broker can expire or revoke grants
+- Broker can rotate grants after successful verification or future token exchange
+- Disconnect revokes or invalidates the current broker grant where practical
+- Squido Settings clearly distinguishes verified connection metadata from secure persistent storage
+- Manual PAT publishing remains separate and untouched
+
+Explicit non-goals:
+
+- Token vending for publishing
+- Repository, branch, or folder pickers
+- Destination-based publishing
+- Secure OS-backed storage implementation
+- Squido Connect local agent
+
+### 0.2.8 — Connection Integration
 
 Goal: integrate the auth broker into Squido without changing publishing behavior.
 

@@ -13,6 +13,8 @@ Manual personal access token entry remains available under **Advanced** for loca
 
 GitHub App authentication is the strategic path because it supports selected-repository installation and avoids asking users to create developer credentials. Manual PAT mode may remain available, but only as an explicit advanced/manual mode chosen by the user.
 
+The accepted lifecycle model is [ADR-0002: Authentication lifecycle](decisions/ADR-0002-authentication-lifecycle.md). In short: GitHub owns repository permissions, the broker owns authentication metadata, and Squido owns publishing.
+
 ## Connection model
 
 A GitHub connection contains the provider, account or organization context, authentication/installation identity, and the repositories accessible through granted GitHub App permissions.
@@ -30,7 +32,13 @@ GitHub App installation fits Squido's publishing model better than OAuth scopes:
 
 Device Flow is useful for command-line or developer-style authentication, but it cannot provide the same selected-repository permission model. Squido should avoid asking users to paste OAuth Client IDs or manage developer credentials.
 
-## GitHub App configuration plan
+## Default hosted-broker model
+
+The public Squido setup should use the DeLeon Labs hosted auth broker and the DeLeon Labs-owned Squido GitHub App. Normal Squido users install the Obsidian plugin, click **Connect GitHub**, and authorize/install the Squido GitHub App through GitHub. They should not create a GitHub App, deploy a broker, configure Wrangler, or provide GitHub App IDs, private keys, client IDs, or client secrets.
+
+Broker deployment configuration belongs to DeLeon Labs operator documentation or a future Advanced Self-Hosting guide, not the default user setup.
+
+## Product GitHub App configuration plan
 
 The official Squido GitHub App should use:
 
@@ -71,15 +79,49 @@ GitHub redirects to the configured setup URL after a first install. If **Redirec
 
 If the Squido GitHub App is already installed and the user makes no repository-access changes, GitHub may keep the user on the installation/settings page instead of redirecting back to the broker setup URL. In that case, the broker never receives the stateful `installation_id` callback and Squido cannot safely mark that install-page flow connected.
 
-That already-installed case should not be treated as the reconnect mechanism. After a successful setup callback, the broker creates a Squido broker grant tied to a `connection_id`, `installation_id`, account login/id/type, and creation timestamp. Squido stores that broker grant as the alpha connection artifact and calls the broker connection-status endpoint to verify that the GitHub App installation still exists. If verification succeeds, Squido marks the connection **Connected** without opening GitHub. If verification fails or no broker grant exists, Squido shows **Reconnect GitHub** and starts a new GitHub install/setup flow.
+That already-installed case should not be treated as the reconnect mechanism. After a successful setup callback, the broker creates a Squido broker grant tied to a `connection_id`, `installation_id`, account login/id/type, and creation timestamp. Squido stores that broker grant through its plugin-data `CredentialStore` and calls the broker connection-status endpoint to verify that the GitHub App installation still exists. If verification succeeds, Squido marks the connection **Connected** without opening GitHub. If verification fails or no broker grant exists, Squido shows **Reconnect GitHub** and starts a new GitHub install/setup flow.
 
 Squido must not complete an already-installed flow without a broker-verified `installation_id` tied to the current stateful connection attempt.
 
-Alpha storage note: the broker grant is not a GitHub token, but it is still sensitive because it can verify a Squido connection. Until secure storage is implemented, alpha builds may store it in Obsidian plugin data with a clear limitation. Production persistent GitHub App login should use secure local storage and must not silently claim secure persistence when secure storage is unavailable.
+Squido stores local GitHub App auth state as four separate concepts:
 
-Squido's accepted storage direction is documented in [ADR-0001: Secure credential storage strategy](decisions/ADR-0001-secure-credential-storage.md), with platform research in [Secure credential storage investigation](credential-storage-investigation.md). Token vending should not proceed until Squido has a credential-store plan or an explicit session-only fallback.
+- setup flow: short-lived GitHub setup/bootstrap or repair attempt;
+- connection: persistent provider/account/installation metadata;
+- device: local generated device/session identifier used for broker verification;
+- session: broker grant/session status stored through the plugin-data `CredentialStore`.
 
-The current alpha implementation uses `PluginDataCredentialStore` as the reference implementation because plugin data is the best currently known cross-platform option within the constraints of the Obsidian plugin API. This is not secure persistent storage. The abstraction leaves room for future `SecureCredentialStore`, `SquidoConnectCredentialStore`, and `SessionOnlyCredentialStore` backends without changing GitHub connection orchestration.
+Normal reconnect uses **Verify Connection** to verify the stored broker session. It should not open GitHub. GitHub setup is reserved for first install, permission repair, or recovery when no valid local broker session exists.
+
+**Manage GitHub Access** opens the GitHub installation settings URL returned by the broker/GitHub installation lookup when available. It is a repository-permission management action only. It must not start setup, create a `flow_id`, or change pending state.
+
+After the user saves repository-access changes in GitHub, GitHub may redirect back to the broker setup URL without Squido connection state. That return should be treated as a permission-management result, not a reconnect attempt. The broker may show a friendly "GitHub access may have been updated" page and Squido should let the user manually refresh or verify the connection.
+
+**Disconnect This Device** revokes or clears the local broker session/device. It does not uninstall the GitHub App, remove the broker's persistent connection record, or imply that repository access changed. After device disconnect, Squido preserves non-sensitive installation/account metadata to explain the state.
+
+**Reauthorize This Device** repairs a disconnected local device when the GitHub App installation still exists. Squido sends preserved connection and installation metadata to the broker, opens a broker-mediated GitHub user verification flow, and polls the broker for completion. The broker verifies that the GitHub user can access the existing installation before issuing a fresh broker session. This does not require repository-access changes and does not use the GitHub install/update page as the reconnect mechanism.
+
+Storage note: the broker grant is not a GitHub token, but it is still sensitive because it can verify a Squido connection. Obsidian does not currently expose secure cross-platform credential storage to community plugins, so Squido stores broker session/grant information through its plugin-data `CredentialStore`. This is the current reference plugin-only implementation, not a claim of OS secure storage.
+
+Squido's accepted storage direction is documented in [ADR-0001: Secure credential storage strategy](decisions/ADR-0001-secure-credential-storage.md), with platform research in [Secure credential storage investigation](credential-storage-investigation.md). Token vending should not proceed until the connection/device/session model is stable.
+
+The current implementation uses `PluginDataCredentialStore` as the reference implementation because plugin data is the best currently known cross-platform option within the constraints of the Obsidian plugin API. The abstraction leaves room for future `SecureCredentialStore`, `SquidoConnectCredentialStore`, and `SessionOnlyCredentialStore` backends if those become practical.
+
+### Broker grant hardening
+
+The current broker grant should be treated as a revocable broker session artifact, not a proof of OS-secure persistent login. It allows Squido to verify a previously completed GitHub App installation without reopening GitHub, but it currently depends on local plugin-data storage because that is the best known plugin-only storage option available to Obsidian community plugins today.
+
+Before token vending, repository discovery, or GitHub App credentialed publishing, Squido and the broker should harden the grant model:
+
+- Squido generates or stores a stable random `device_session_id` for the local plugin installation.
+- The broker should bind each broker grant to a connection, installation, account, and device/session identifier.
+- Squido sends `device_session_id` when starting a GitHub App flow, verifying a stored broker grant, or revoking a connection.
+- The broker should verify the grant and device/session identifier together.
+- The broker should store only hashed grant material where practical.
+- Grants should be revocable and expire according to a documented policy.
+- Grants should rotate after successful verification or future token exchange where practical; Squido replaces the locally stored broker grant when the broker returns a rotated grant.
+- Disconnect asks the broker to invalidate the current local grant where practical, then clears local GitHub App connection state.
+
+This does not make plugin data secure. It reduces blast radius, supports revocation, and gives the broker enough structure to audit and retire individual local sessions. Secure OS-backed storage or Squido Connect remains a future improvement.
 
 ## Broker responsibility boundary
 
@@ -89,19 +131,18 @@ Canonical broker decisions live in the broker repo:
 
 - [ADR-0001: Auth broker does not handle note content](https://github.com/DeLeon-Labs/squido-auth-broker/blob/main/docs/decisions/ADR-0001-auth-broker-does-not-handle-note-content.md)
 - [ADR-0002: GitHub App authentication uses broker plus short-lived GitHub tokens](https://github.com/DeLeon-Labs/squido-auth-broker/blob/main/docs/decisions/ADR-0002-github-app-auth-uses-broker-and-short-lived-tokens.md)
-- [ADR-0003: Secure storage is required for persistent GitHub App login](https://github.com/DeLeon-Labs/squido-auth-broker/blob/main/docs/decisions/ADR-0003-secure-storage-required-for-persistent-login.md)
 
 Squido owns note content, destinations, bindings, manifests, publish rules, import/sync/conflict policy, and Lighthouse integration state. The broker owns provider trust flow state and GitHub App secret handling. Publishing content should go directly from Squido to GitHub after Squido obtains short-lived authorization.
 
 ## Connection integration milestone
 
-The implementation bridge after broker, credential storage, modular cleanup, and picker planning is **0.2.7 — Connection Integration**.
+The implementation bridge after broker, credential storage, modular cleanup, grant hardening, and picker planning is **0.2.8 — Connection Integration**.
 
 Its purpose is to integrate the broker into Squido without changing publishing behavior. Users should be able to connect GitHub, disconnect GitHub, choose a granted repository, choose a branch, choose a folder/path, and continue using the existing **Publish current note** action.
 
 This milestone must also migrate existing manual PAT users cleanly. The PAT fallback can remain under **Advanced**, but existing users should not lose their current publish settings or need to recreate them manually.
 
-0.2.7 should not introduce multiple destinations, a publishing router, Lighthouse integration, import workflows, or website workflows. Those features depend on a working connection integration but belong to later milestones.
+0.2.8 should not introduce multiple destinations, a publishing router, Lighthouse integration, import workflows, or website workflows. Those features depend on a working connection integration but belong to later milestones.
 
 **0.2.2 — GitHub App Authentication MVP** proves only the trust flow: a user can click **Connect GitHub**, install or authorize the Squido GitHub App, return through the broker, and see Squido marked **Connected**. It does not enable publishing, repository discovery, branch/folder picking, or destination setup yet.
 
@@ -130,7 +171,7 @@ Sensitive local data:
 
 The GitHub App private key belongs only on product-controlled infrastructure. Squido should store only the minimum local credential material required for the current session or fallback flow.
 
-No silent insecure credential storage: persistent GitHub App login requires secure local storage for sensitive credential material. If secure storage is unavailable, Squido should fail closed, require reconnect/session-only behavior, or ask the user to explicitly choose advanced/manual PAT mode with clear warnings. It must not silently persist sensitive GitHub App login material in plaintext plugin data while presenting the connection as secure. See broker [ADR-0003](https://github.com/DeLeon-Labs/squido-auth-broker/blob/main/docs/decisions/ADR-0003-secure-storage-required-for-persistent-login.md).
+No false security claims: Squido must document that plugin-data storage is not OS secure storage. Persistent GitHub App login should use the strongest storage backend reasonably available to the plugin. Today, that means plugin-data `CredentialStore` plus broker-side revocation, rotation, short-lived GitHub installation tokens, and a content-blind broker. See [ADR-0001](decisions/ADR-0001-secure-credential-storage.md) and [ADR-0002](decisions/ADR-0002-authentication-lifecycle.md).
 
 ## Manual token fallback
 
@@ -138,10 +179,8 @@ Manual PAT support remains under **Advanced** so existing alpha users can contin
 
 Manual PAT mode should remain visibly separate from the GitHub App path. It should be a deliberate user choice, not an automatic fallback from failed secure storage.
 
-## Open questions after the connection MVP
+## Remaining decisions and planned work
 
-- What domain/subdomain will host the auth broker?
-- Will the broker return short-lived installation tokens to Squido, or only broker token exchange? The preferred answer remains short-lived authorization that lets note content go directly from Obsidian/Squido to GitHub.
-- How should the plugin recover if the browser flow completes but Obsidian is closed?
-- Can Obsidian desktop plugins access Electron `safeStorage` in a supported way?
-- Should beta mobile GitHub App login be session-only until Obsidian exposes secure storage?
+[ADR-0002: Authentication lifecycle](decisions/ADR-0002-authentication-lifecycle.md) is the source of truth for the authentication model.
+
+Remaining decisions are limited to future product behavior such as additional-device pairing. Planned implementation work, such as the broker `AuthStore` / `KvAuthStore` boundary and the future token vending contract, should not be treated as unresolved architecture. Future Obsidian secure storage APIs and Squido Connect remain possible improvements, not dependencies for the current plugin-only architecture.

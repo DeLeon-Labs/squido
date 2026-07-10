@@ -8,6 +8,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- Bumped the development build version to `0.2.7-alpha.6` for Repair/Reauthorize This Device.
+- Added a GitHub App device repair action that reauthorizes a disconnected local device against an existing installation without requiring repository-access changes.
+- Fixed clearing failed/expired repair state so preserved installation metadata without a valid broker grant returns to device-disconnected, not connected.
+- Bumped the development build version to `0.2.7-alpha.5` for GitHub installation manage URL and device-disconnect semantics.
+- Manage GitHub Access now opens broker-provided GitHub installation settings URLs when available and does not create setup flow state.
+- Disconnect This Device now preserves non-sensitive installation metadata, marks the local device/session disconnected, and does not imply the GitHub App installation was removed.
+- Bumped the development build version to `0.2.7-alpha.4` for broker connection/session model support.
+- Separated local GitHub App auth state into setup flow, connection, device, and session metadata so normal reconnect verifies the broker session without opening GitHub.
+- Renamed connection UI actions around the lifecycle model: **Verify Connection**, **Manage GitHub Access**, and **Disconnect This Device**.
+- Bumped the development build version to `0.2.7-alpha.3` for mobile-copyable pending diagnostics.
+- Bumped the development build version to `0.2.7-alpha.3` for broker `device_session_id` contract alignment.
+- Bumped the development build version to `0.2.7-alpha.1` for the stale pending-state fix.
+- Bumped the development build version to `0.2.7-alpha` for Squido-side broker grant hardening.
+- Added generated GitHub App device/session identity on the Squido side for future broker grant binding.
+- Added device/session id to broker start, verification, and revocation requests.
+- Added broker grant revocation attempt on GitHub App disconnect while preserving local disconnect behavior.
+- Added support for broker grant rotation and expired/revoked verification responses.
+- Fixed stale pending GitHub App connection state so missing or invalid expiration metadata becomes expired instead of leaving Connect GitHub disabled indefinitely.
+- Inserted broker-grant hardening as the next connection milestone before token vending, repository picker calls, or GitHub App credentialed publishing.
+- Clarified that plugin-data broker grants are durable local session artifacts and hardened them with broker-side expiration, revocation, device/session binding, and rotation.
 - Bumped the development build version to `0.2.6-alpha` for the modular architecture cleanup milestone.
 - Modularized source ownership for GitHub App connection orchestration, settings sections, credential storage seam, build diagnostics, and manifest storage without changing runtime behavior.
 - Bumped the development build version to `0.2.2-alpha.2` for broker-grant connection verification.
