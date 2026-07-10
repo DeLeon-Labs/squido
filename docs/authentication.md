@@ -94,6 +94,8 @@ Normal reconnect uses **Verify Connection** to verify the stored broker session.
 
 **Manage GitHub Access** opens the GitHub installation settings URL returned by the broker/GitHub installation lookup when available. It is a repository-permission management action only. It must not start setup, create a `flow_id`, or change pending state.
 
+After the user saves repository-access changes in GitHub, GitHub may redirect back to the broker setup URL without Squido connection state. That return should be treated as a permission-management result, not a reconnect attempt. The broker may show a friendly "GitHub access may have been updated" page and Squido should let the user manually refresh or verify the connection.
+
 **Disconnect This Device** revokes or clears the local broker session/device. It does not uninstall the GitHub App, remove the broker's persistent connection record, or imply that repository access changed. After device disconnect, Squido preserves non-sensitive installation/account metadata to explain the state.
 
 **Reauthorize This Device** repairs a disconnected local device when the GitHub App installation still exists. Squido sends preserved connection and installation metadata to the broker, opens a broker-mediated GitHub user verification flow, and polls the broker for completion. The broker verifies that the GitHub user can access the existing installation before issuing a fresh broker session. This does not require repository-access changes and does not use the GitHub install/update page as the reconnect mechanism.
