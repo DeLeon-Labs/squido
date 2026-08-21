@@ -139,11 +139,35 @@ Explicit non-goals:
 - Secure OS-backed storage implementation
 - Squido Connect local agent
 
-### 0.2.8 — Connection Integration
+### 0.2.8 — Short-lived installation token vending
+
+Goal: prove that an already verified Squido broker connection can obtain short-lived GitHub authorization without storing installation tokens in Squido or the broker.
+
+Acceptance criteria:
+
+- Require a valid broker grant/session and matching device/session identifier
+- Verify broker session state before minting
+- Verify the GitHub App installation still exists
+- Mint a short-lived GitHub installation access token using broker-side GitHub App credentials
+- Return only the token and expiration/authorization metadata needed by Squido
+- Do not persist the GitHub installation token
+- Keep the broker content-blind
+- Preserve existing broker grant rotation/revocation behavior
+- Document the token lifetime and storage boundary clearly
+
+Explicit non-goals:
+
+- Repository discovery
+- Repository, branch, or folder pickers
+- Publishing through GitHub App credentials
+- Destination-based publishing
+- Webhooks
+
+### 0.2.9 — Connection Integration
 
 Goal: integrate the auth broker into Squido without changing publishing behavior.
 
-This is the bridge between connection planning and destination-based publishing. It should prove the connection can drive the existing single-destination alpha publish flow before Squido introduces multiple destinations or a publishing router.
+This is the bridge between connection planning and destination-based publishing. It should prove the verified connection and short-lived token path can drive the existing single-destination alpha publish flow before Squido introduces multiple destinations or a publishing router.
 
 Acceptance criteria:
 
