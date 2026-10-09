@@ -1,3 +1,16 @@
+.squido-setup { padding: var(--size-4-4); max-width: 880px; margin-inline: auto; }
+.squido-connection-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--size-4-3); }
+.squido-connection-card { display: grid; grid-template-columns: 1.5rem 1fr; gap: var(--size-4-2); width: 100%; height: auto; min-height: 96px; padding: var(--size-4-4); white-space: normal; text-align: start; border: 2px solid var(--background-modifier-border); border-radius: var(--radius-l); background: var(--background-secondary); color: var(--text-normal); box-shadow: none; }
+.squido-connection-card.is-selected { border-color: var(--interactive-accent); }
+.squido-connection-card:focus-visible { outline: 3px solid var(--interactive-accent); outline-offset: 3px; }
+.squido-card-title { font-weight: var(--font-semibold); }
+.squido-card-summary { grid-column: 2; color: var(--text-muted); }
+.squido-card-check { grid-row: span 2; color: var(--interactive-accent); }
+.squido-connection-explainer { margin-block: var(--size-4-4); padding: var(--size-4-3); border-radius: var(--radius-m); background: var(--background-secondary); }
+.squido-setup .setting-item { flex-wrap: wrap; gap: var(--size-4-2); }
+.squido-setup .setting-item-control { flex-wrap: wrap; min-width: 0; }
+@media (max-width: 600px) { .squido-connection-cards { grid-template-columns: minmax(0, 1fr); } .squido-setup input { max-width: 100%; } }
+
 .squido-publish-actions {
   display: flex;
   justify-content: flex-end;

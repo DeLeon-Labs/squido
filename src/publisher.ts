@@ -48,6 +48,7 @@ export function commitMessageFor(file: TFile, template: string): string {
 }
 
 function validateSettings(settings: SquidoSettings): void {
+  if (settings.connectionMode !== "pat") throw new Error("GitHub App publishing is not implemented in this alpha. Choose PAT mode in Welcome / Setup; no credential fallback is used.");
   const required: Array<[string, string]> = [
     ["GitHub token in SecretStorage", settings.credentialRefs?.githubPat ?? ""],
     ["owner or organization", settings.owner],

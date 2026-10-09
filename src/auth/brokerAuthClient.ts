@@ -80,10 +80,11 @@ export class BrokerAuthClient {
   constructor(
     private readonly baseUrl: string,
     private readonly debug = false,
+    private readonly send: (request: Parameters<typeof requestUrl>[0]) => Promise<Awaited<ReturnType<typeof requestUrl>>> = requestUrl,
   ) {}
 
   async startGitHubAuth(pluginVersion?: string, deviceSessionId?: string): Promise<GitHubAuthStartResponse> {
-    const response = await requestUrl({
+    const response = await this.send({
       url: brokerUrlFor(this.baseUrl, "/auth/github/start"),
       method: "POST",
       contentType: "application/json",
@@ -115,7 +116,7 @@ export class BrokerAuthClient {
     pluginVersion?: string,
     deviceSessionId?: string,
   ): Promise<GitHubAuthStartResponse> {
-    const response = await requestUrl({
+    const response = await this.send({
       url: brokerUrlFor(this.baseUrl, "/auth/github/repair/start"),
       method: "POST",
       contentType: "application/json",
@@ -146,7 +147,7 @@ export class BrokerAuthClient {
 
   async getGitHubAuthStatus(flowId: string): Promise<GitHubAuthStatusResponse> {
     const url = this.statusUrl(flowId);
-    const response = await requestUrl({
+    const response = await this.send({
       url,
       method: "GET",
       throw: false,
@@ -175,7 +176,7 @@ export class BrokerAuthClient {
 
   async verifyGitHubConnection(brokerGrant: string, deviceSessionId?: string): Promise<GitHubConnectionVerificationResponse> {
     const url = brokerUrlFor(this.baseUrl, "/auth/github/connection/status");
-    const response = await requestUrl({
+    const response = await this.send({
       url,
       method: "POST",
       contentType: "application/json",
@@ -206,7 +207,7 @@ export class BrokerAuthClient {
 
   async revokeGitHubConnection(brokerGrant: string, deviceSessionId?: string): Promise<GitHubConnectionRevocationResponse> {
     const url = brokerUrlFor(this.baseUrl, "/auth/github/connection/revoke");
-    const response = await requestUrl({
+    const response = await this.send({
       url,
       method: "POST",
       contentType: "application/json",

@@ -1,4 +1,4 @@
-import { Notice } from "obsidian";
+import { Notice, requestUrl } from "obsidian";
 import { BrokerAuthClient, type GitHubAuthStatusResponse } from "./brokerAuthClient";
 import { GITHUB_BROKER_GRANT_CREDENTIAL, type CredentialStore } from "../credentials/credentialStore";
 import type { ManifestStore } from "../storage/manifestStore";
@@ -15,6 +15,16 @@ export interface GitHubConnectionControllerOptions {
 
 export class GitHubConnectionController {
   private activeConnectionPoll: number | null = null;
+  private suspended = false;
+  private requests = new Set<Promise<unknown>>();
+
+  async quiesce(): Promise<void> {
+    this.suspended = true;
+    this.stopPolling();
+    await Promise.allSettled([...this.requests]);
+  }
+
+  resumeBroker(): void { this.suspended = false; }
 
   constructor(private readonly options: GitHubConnectionControllerOptions) {}
 
@@ -351,6 +361,7 @@ export class GitHubConnectionController {
   }
 
   private startPolling(flowId: string, pollIntervalSeconds: number, expiresAt: string): void {
+    if (this.suspended || this.options.manifestStore.getSettings().connectionMode === "pat") return;
     this.stopPolling();
     const intervalMs = Math.max(1, pollIntervalSeconds) * 1000;
     const poll = () => void this.poll(flowId, expiresAt);
@@ -598,7 +609,16 @@ export class GitHubConnectionController {
   }
 
   private createClient(baseUrl: string): BrokerAuthClient {
-    return new BrokerAuthClient(baseUrl, this.options.isDevelopmentBuild());
+    return new BrokerAuthClient(baseUrl, this.options.isDevelopmentBuild(), async (params) => {
+      if (this.suspended || this.options.manifestStore.getSettings().connectionMode === "pat") throw new Error("Broker requests are disabled in PAT mode or while switching connection method.");
+      const request = requestUrl(params);
+      this.requests.add(request);
+      try {
+        const response = await request;
+        if (this.suspended || this.options.manifestStore.getSettings().connectionMode === "pat") throw new Error("Broker result discarded during connection method switch.");
+        return response;
+      } finally { this.requests.delete(request); }
+    });
   }
 
   private async getOrCreateDeviceSessionId(): Promise<string> {

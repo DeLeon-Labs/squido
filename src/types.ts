@@ -5,7 +5,11 @@ export type PublishStatus =
   | "deleted"
   | "error";
 
+export type ConnectionMode = "broker" | "pat";
+
 export interface SquidoSettings {
+  connectionMode?: ConnectionMode;
+  setupSelectionMade?: boolean;
   credentialRefs?: { githubPat?: string; brokerGrant?: string };
   /** Legacy input only; cleared during migration and never used for publishing. */
   githubToken: string;

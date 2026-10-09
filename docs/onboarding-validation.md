@@ -1,0 +1,17 @@
+# Approved onboarding implementation (DEL-89)
+
+Canonical design/copy: `docs/github-auth-onboarding-reference` at `fbc0bc2`.
+
+Use the Squido command **Open Welcome / Setup** or Settings → Connection method. First setup opens a dedicated workspace tab, never an onboarding modal. Native full-card buttons support Tab, Enter and Space; `aria-pressed`, selected border/check and polite conditional explainer expose selection. Narrow screens stack full-width cards. Selection persists in plugin settings; existing PAT users default to PAT mode on migration. Settings offers switching and mode-specific local forget/disconnect controls.
+
+PAT mode is independent: startup verification, pending polling, focus/visibility refresh and direct broker transport are gated off. Switching first suspends/discards/drains in-flight broker transport and stops polling, then commits mode. No new broker requests may dispatch once PAT mode is active. In-flight server-side work may already have occurred before the switch; discarded rotated grants may require reauthorization when returning to broker mode. Selection may wait for an already-started request; no transport cancellation is claimed. Switching preserves the other credential and is not revocation.
+
+PAT publishing uses GitHub's Contents GET to find existing SHA and PUT to publish. Grant **Contents read/write** and automatic **Metadata read** on selected destination repositories only. Do not target workflow files or grant unrelated Workflows, Actions or Administration scopes. Set expiration; organizations may require approval. Local forgetting empties the SecretStorage value; revoke the PAT in GitHub separately. Every publish request goes directly to api.github.com, not Squido/Cloudflare. No silent mode fallback.
+
+GitHub App onboarding retains the existing authorization/device-repair flow. The broker remains content-blind. IMPORTANT: existing broker vending is metadata-read repository discovery; GitHub App publishing and write-scoped purposes are explicit DEL-66 non-goals. This change does not add them. App-mode publishing fails closed instead of using a stored PAT, and the setup tab prominently explains this alpha limitation. End-to-end independent App publishing is therefore an outstanding product gate, not a verified completion claim.
+
+Secrets use Obsidian SecretStorage on Obsidian 1.11.4+, not plaintext plugin settings. Named secrets and community-plugin runtime are shared; no encrypted-at-rest, per-plugin isolation or device-sync guarantee is made. Desktop and iOS GUI/client-storage acceptance remains with Jon.
+
+Validation: `pnpm test`, `pnpm run typecheck`, `pnpm run build`. Tests use a lightweight DOM boundary and mocked public APIs; verify selector state/copy, failed saves, persisted mode, all five broker transport methods blocked in PAT mode, switch draining, direct PAT publishing, and fail-closed App publishing. CSS assertions are not screenshots or a screen-reader audit.
+
+Manual macOS/iOS checklist: open setup tab; test narrow/wide layout, tapping entire cards, native keyboard and screen-reader announcement/focus; save selection/reload; save/replace/forget a disposable PAT; verify network calls contain only api.github.com in PAT mode including reload/focus; broker install/repair/disconnect with a disposable installation; inspect reference-only persistence and shared-runtime warnings. No live desktop control was performed by the agent.
