@@ -14,3 +14,5 @@ export const GITHUB_BROKER_GRANT_CREDENTIAL: CredentialKey = {
   name: "brokerGrant",
 };
 
+export const GITHUB_PAT_CREDENTIAL: CredentialKey = { provider: "github", name: "pat" };
+

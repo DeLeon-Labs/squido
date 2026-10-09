@@ -56,10 +56,10 @@ export function renderConnectionSection(
         });
     });
 
-  if (connection.session?.broker_grant || connection.connection?.broker_grant) {
+  if (settings.credentialRefs?.brokerGrant) {
     new Setting(containerEl)
       .setName("Stored connection")
-      .setDesc("Verify the existing broker connection without opening GitHub. Storage note: the broker grant is stored in Obsidian plugin data, not OS secure storage.")
+      .setDesc("Verify the existing broker connection. The grant is stored through Obsidian SecretStorage; this does not promise encryption at rest or isolation from other plugins.")
       .addButton((button) => {
         button
           .setButtonText("Verify Connection")

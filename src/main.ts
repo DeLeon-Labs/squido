@@ -1,6 +1,7 @@
 import { Notice, Plugin, TFile } from "obsidian";
 import { GitHubConnectionController } from "./auth/githubConnection";
-import { PluginDataCredentialStore } from "./credentials/pluginDataCredentialStore";
+import { SecretStorageCredentialStore } from "./credentials/secretStorageCredentialStore";
+import { GITHUB_PAT_CREDENTIAL } from "./credentials/credentialStore";
 import { loadBuildInfo } from "./diagnostics/buildInfo";
 import { FileEventHandler } from "./fileEvents";
 import { GitHubClient } from "./githubClient";
@@ -13,6 +14,7 @@ import { PublishModal } from "./ui/PublishModal";
 import { SquidoStatusBar } from "./ui/StatusBar";
 
 export default class SquidoPlugin extends Plugin {
+  private credentialStore!: SecretStorageCredentialStore;
   private manifestStore!: ManifestStore;
   private publisher!: Publisher;
   private statusService!: PublishStatusService;
@@ -29,11 +31,18 @@ export default class SquidoPlugin extends Plugin {
       (data: SquidoData) => this.saveData(data),
     );
     await this.manifestStore.initialize();
+    this.credentialStore = new SecretStorageCredentialStore(this.manifestStore, this.app.secretStorage);
+    try {
+      await this.credentialStore.migrateLegacy();
+    } catch {
+      new Notice("Squido could not migrate or access SecretStorage. Publishing and connection setup are disabled; legacy credentials were not erased. Check this device's secrets and reload Squido.", 12000);
+      throw new Error("Squido SecretStorage initialization failed.");
+    }
     const buildInfoResult = await loadBuildInfo(this.app, this.manifest.dir);
     this.buildInfo = buildInfoResult.buildInfo;
     this.buildInfoDiagnostics = buildInfoResult.diagnostics;
 
-    const githubClient = new GitHubClient(() => this.manifestStore.getSettings().githubToken);
+    const githubClient = new GitHubClient(async () => await this.credentialStore.get(GITHUB_PAT_CREDENTIAL) ?? "");
     this.publisher = new Publisher(this.app.vault, this.manifestStore, githubClient);
     this.statusService = new PublishStatusService(this.app.vault, this.manifestStore);
     this.statusBar = new SquidoStatusBar(this.addStatusBarItem());
@@ -45,7 +54,7 @@ export default class SquidoPlugin extends Plugin {
     );
     this.githubConnection = new GitHubConnectionController({
       manifestStore: this.manifestStore,
-      credentialStore: new PluginDataCredentialStore(this.manifestStore),
+      credentialStore: this.credentialStore,
       pluginVersion: this.manifest.version,
       isDevelopmentBuild: () => this.isDevelopmentBuild(),
       registerInterval: (id) => this.registerInterval(id),
@@ -75,8 +84,8 @@ export default class SquidoPlugin extends Plugin {
   }
 
   onunload(): void {
-    this.githubConnection.stopPolling();
-    this.fileEvents.stop();
+    this.githubConnection?.stopPolling();
+    this.fileEvents?.stop();
   }
 
   getSettings(): SquidoSettings {
@@ -85,6 +94,14 @@ export default class SquidoPlugin extends Plugin {
 
   async updateSettings(settings: SquidoSettings): Promise<void> {
     await this.manifestStore.updateSettings(settings);
+  }
+
+  async saveGitHubPat(value: string): Promise<void> {
+    await this.credentialStore.set(GITHUB_PAT_CREDENTIAL, value.trim());
+  }
+
+  async forgetGitHubPat(): Promise<void> {
+    await this.credentialStore.delete(GITHUB_PAT_CREDENTIAL);
   }
 
   getBuildInfo(): BuildInfo | null {

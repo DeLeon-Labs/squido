@@ -429,6 +429,8 @@ export class GitHubConnectionController {
         const deviceSessionId = await this.getOrCreateDeviceSessionId();
         const connection = sanitizeGitHubConnectionMetadata(status.connection, brokerBaseUrl, deviceSessionId);
         const brokerGrant = connection.broker_grant;
+        if (!brokerGrant) throw new Error("GitHub setup returned no broker grant. Reconnect GitHub.");
+        await this.options.credentialStore.set(GITHUB_BROKER_GRANT_CREDENTIAL, brokerGrant);
         await this.updateState({
           status: "connected",
           device_session_id: deviceSessionId,
@@ -439,7 +441,7 @@ export class GitHubConnectionController {
           },
           session: brokerGrant
             ? {
-                broker_grant: brokerGrant,
+                broker_grant: undefined,
                 status: "active",
                 last_verified_at: new Date().toISOString(),
               }
@@ -455,7 +457,6 @@ export class GitHubConnectionController {
           last_error: undefined,
           last_status_result: status.status,
         });
-        if (brokerGrant) await this.options.credentialStore.set(GITHUB_BROKER_GRANT_CREDENTIAL, brokerGrant);
         new Notice("GitHub connected.", 8000);
         return;
       }
@@ -537,6 +538,7 @@ export class GitHubConnectionController {
         return false;
       }
 
+      if (verification.broker_grant) await this.options.credentialStore.set(GITHUB_BROKER_GRANT_CREDENTIAL, verification.broker_grant);
       await this.updateState({
         status: "connected",
         device_session_id: verification.device_session_id ?? deviceSessionId,
@@ -547,7 +549,7 @@ export class GitHubConnectionController {
         },
         session: {
           ...verification.session,
-          broker_grant: verification.broker_grant ?? brokerGrant,
+          broker_grant: undefined,
           status: verification.session?.status ?? "active",
           last_verified_at: verification.session?.last_verified_at ?? verification.verified_at,
         },
@@ -569,7 +571,6 @@ export class GitHubConnectionController {
         }, connection?.brokerBaseUrl ?? settings.authBrokerBaseUrl, verification.device_session_id ?? deviceSessionId),
       });
 
-      if (verification.broker_grant) await this.options.credentialStore.set(GITHUB_BROKER_GRANT_CREDENTIAL, verification.broker_grant);
       if (options.showNotice) new Notice("GitHub connection verified.");
       return true;
     } catch (error) {
@@ -741,7 +742,7 @@ function hasLocalBrokerSession(connection: GitHubAppConnectionState): boolean {
   return Boolean(
     connection.connection &&
     (connection.device?.device_session_id ?? connection.device_session_id) &&
-    (connection.session?.broker_grant ?? connection.connection.broker_grant),
+    connection.session?.status === "active",
   );
 }
 

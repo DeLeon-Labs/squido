@@ -1,3 +1,4 @@
+import { Notice, Setting } from "obsidian";
 import type SquidoPlugin from "../main";
 import type { BuildInfo, BuildInfoDiagnostics, SquidoSettings } from "../types";
 import { renderTextSetting } from "./textSetting";
@@ -7,7 +8,23 @@ export function renderManualPatSection(containerEl: HTMLElement, plugin: SquidoP
   containerEl.createEl("p", {
     text: "Manual personal access token publishing remains available for alpha testing and recovery. It is separate from the GitHub App connection flow.",
   });
-  renderTextSetting(containerEl, plugin, settings, "GitHub token", "A token with Contents write access to the destination repository.", "githubToken", true);
+  let pat = "";
+  new Setting(containerEl).setName("GitHub token")
+    .setDesc("Saved through Obsidian SecretStorage. Use a fine-grained PAT with Contents read/write for only the destination repository. This does not guarantee encryption at rest or plugin isolation.")
+    .addText((text) => {
+      text.inputEl.type = "password";
+      text.inputEl.autocomplete = "off";
+      text.setPlaceholder(settings.credentialRefs?.githubPat ? "Token saved; enter replacement" : "Fine-grained PAT");
+      text.onChange((value) => { pat = value; });
+    })
+    .addButton((button) => button.setButtonText("Save token").onClick(async () => {
+      try { await plugin.saveGitHubPat(pat); pat = ""; containerEl.querySelector<HTMLInputElement>('input[type="password"]')!.value = ""; new Notice("Token saved in SecretStorage."); }
+      catch { new Notice("Token could not be saved. Check SecretStorage on this device."); }
+    }))
+    .addButton((button) => button.setButtonText("Forget token").onClick(async () => {
+      try { await plugin.forgetGitHubPat(); new Notice("Local token cleared. Revoke it separately in GitHub settings."); }
+      catch { new Notice("Token could not be cleared. Check SecretStorage on this device."); }
+    }));
   renderTextSetting(containerEl, plugin, settings, "Owner or organization", "The GitHub account that owns the repository.", "owner");
   renderTextSetting(containerEl, plugin, settings, "Repository", "Repository name without the owner.", "repo");
   renderTextSetting(containerEl, plugin, settings, "Branch", "Branch to publish to.", "branch");

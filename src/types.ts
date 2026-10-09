@@ -6,6 +6,8 @@ export type PublishStatus =
   | "error";
 
 export interface SquidoSettings {
+  credentialRefs?: { githubPat?: string; brokerGrant?: string };
+  /** Legacy input only; cleared during migration and never used for publishing. */
   githubToken: string;
   owner: string;
   repo: string;

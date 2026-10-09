@@ -3,7 +3,7 @@ import type SquidoPlugin from "../main";
 import type { SquidoSettings } from "../types";
 
 export type TextSettingKey = {
-  [Key in keyof SquidoSettings]: SquidoSettings[Key] extends string ? Key : never;
+  [Key in keyof SquidoSettings]-?: SquidoSettings[Key] extends string ? Key : never;
 }[keyof SquidoSettings];
 
 export function renderTextSetting(
@@ -20,8 +20,7 @@ export function renderTextSetting(
     .setDesc(description)
     .addText((text) => {
       text.setValue(settings[key]).onChange(async (value) => {
-        settings[key] = value;
-        await plugin.updateSettings(settings);
+        await plugin.updateSettings({ ...plugin.getSettings(), [key]: value });
       });
       if (password) text.inputEl.type = "password";
     });
