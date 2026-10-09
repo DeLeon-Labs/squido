@@ -39,8 +39,12 @@ export class ManifestStore {
   }
 
   async updateSettings(settings: SquidoSettings): Promise<void> {
-    this.data.settings = { ...settings };
-    await this.persist();
+    if (settings.githubToken || settings.githubAppConnection.session?.broker_grant || settings.githubAppConnection.connection?.broker_grant) {
+      throw new Error("Credentials must be saved in SecretStorage, not plugin settings.");
+    }
+    const next = { ...this.data, settings: structuredClone(settings) };
+    await this.save(structuredClone(next));
+    this.data = next;
   }
 
   get(localNotePath: string): PublishManifestEntry | undefined {
