@@ -27,6 +27,8 @@ export class ManifestStore {
   async initialize(): Promise<void> {
     const stored = (await this.load()) as Partial<SquidoData> | null;
     const settings = { ...DEFAULT_SETTINGS, ...stored?.settings };
+    settings.connectionMode = settings.connectionMode === "pat" || settings.connectionMode === "broker"
+      ? settings.connectionMode : settings.githubToken || settings.credentialRefs?.githubPat ? "pat" : "broker";
     settings.githubAppConnection = normalizeGitHubAppConnectionState(settings.githubAppConnection);
     this.data = {
       settings,

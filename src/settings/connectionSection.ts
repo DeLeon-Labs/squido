@@ -11,7 +11,7 @@ export function renderConnectionSection(
 ): void {
   containerEl.createEl("h3", { text: "GitHub App connection" });
   containerEl.createEl("p", {
-    text: "Connect GitHub through the Squido auth broker. This proves the trust flow only; publishing still uses the advanced manual settings for now.",
+    text: "Connect GitHub through the content-blind Squido auth broker. This alpha proves authorization only; App publishing is disabled. Choose PAT mode in Welcome / Setup for direct publishing without broker involvement.",
   });
 
   renderTextSetting(

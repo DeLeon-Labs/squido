@@ -9,6 +9,12 @@ await build({
     build.onResolve({ filter: /^obsidian$/ }, () => ({ path: "obsidian", namespace: "mock" }));
     build.onLoad({ filter: /.*/, namespace: "mock" }, () => ({ contents: `
       export class Notice { constructor() {} }
+      export class ItemView {}
+      export class Setting {}
+      export class Plugin {}
+      export class PluginSettingTab {}
+      export class Modal {}
+      export class TFile {}
       export const requestUrl = (params) => globalThis.__requestUrl(params);
       export const normalizePath = (path) => path;
     `, loader: "js" }));
