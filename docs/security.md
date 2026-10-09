@@ -1,34 +1,38 @@
 # Security
 
-This is the short Squido security checklist. Detailed auth flow planning lives in [authentication.md](authentication.md). Canonical broker trust decisions live in the [squido-auth-broker ADR index](https://github.com/DeLeon-Labs/squido-auth-broker/blob/main/docs/decisions.md).
+This is the concise Squido security checklist. [GitHub App authentication architecture](github-app-auth-architecture.md) is the canonical public source for trust boundaries, lifecycle, storage, token scope, revocation/rotation, content-blindness, and failure behavior. [Authentication](authentication.md) covers user-facing setup and local credential storage.
 
 ## Current alpha
 
-- Squido sends note content only to the configured GitHub API destination.
-- The manual PAT fallback stores its token in Obsidian plugin data because Obsidian does not provide a universal plugin secrets store.
-- Use a fine-grained personal access token restricted to the destination repository with only the Contents permission needed to write files.
-- Broker grants are stored through Squido's plugin-data `CredentialStore` because Obsidian does not currently expose secure cross-platform credential storage to community plugins. This is the current reference plugin-only implementation, not OS secure storage.
-- Broker sessions remain revocable and rotatable. Squido sends a generated `device_session_id` with broker start, verification, and revocation requests.
+- Manual PAT publishing remains an explicit **Advanced** fallback.
+- The manual PAT and current broker grant are stored in Obsidian plugin data, not OS secure storage.
+- Use a fine-grained PAT restricted to the destination repository with only the Contents permission needed to write files.
 - Do not share or commit Squido `data.json`.
-- Treat vault backups and synced Obsidian configuration as sensitive if they include plugin data.
+- Treat vault backups and synced Obsidian configuration as sensitive when they include plugin data.
+- Broker grants are sensitive session artifacts even though they are not GitHub tokens. Broker-side hashing, device binding, expiration, revocation, and rotation limit their usefulness after invalidation.
 
-## Strategic GitHub App path
+## GitHub App path
 
-- GitHub App auth is the strategic path because users and organizations can grant selected-repository access.
-- Default users use the DeLeon Labs hosted auth broker and DeLeon Labs-owned GitHub App; they do not configure GitHub App secrets, Wrangler vars, Cloudflare Workers, or broker deployment.
-- GitHub App private keys and broker signing secrets must never be bundled into the Obsidian plugin.
-- The auth broker is infrastructure, not a publishing service. See broker [ADR-0001](https://github.com/DeLeon-Labs/squido-auth-broker/blob/main/docs/decisions/ADR-0001-auth-broker-does-not-handle-note-content.md).
-- Squido should publish directly to GitHub after obtaining short-lived authorization. User-authored content should not be proxied through the broker.
-- Persistent GitHub App login should use the strongest storage backend reasonably available to the plugin. Today, Squido's reference plugin-only backend is plugin data plus broker-side revocation and rotation.
-- Squido must not describe plugin-data storage as OS secure storage.
-- Squido's accepted local storage direction is [ADR-0001: Secure credential storage strategy](decisions/ADR-0001-secure-credential-storage.md). The supporting research is in [Secure credential storage investigation](credential-storage-investigation.md).
-- The accepted lifecycle model is [ADR-0002: Authentication lifecycle](decisions/ADR-0002-authentication-lifecycle.md).
-- GitHub installation tokens must remain short-lived and must never be persisted by Squido.
-- Broker-grant hardening should happen before token vending: generated device/session identifiers, revocation, expiration, and grant rotation reduce the risk of plaintext alpha storage without claiming secure persistence.
+- GitHub owns installation and repository permissions; clients cannot use the broker to broaden them.
+- The only implemented token purpose is `repo_discovery`, fixed to `metadata: read`.
+- Squido does not yet call the token endpoint, discover repositories, provide pickers, or publish with GitHub App credentials.
+- GitHub App private keys, broker secrets, provider client secrets, GitHub tokens, and reusable grants must never be logged.
+- Credential-bearing responses must use `Cache-Control: no-store`.
+- GitHub installation tokens are short-lived, held in memory only, and never persisted by Squido or the broker.
+- Cloudflare KV stores authentication records but is not used as a distributed lock. A SQLite-backed Durable Object is the coordinated serialization boundary for token vending.
+- Uncertain cross-system token-creation failures fail closed.
+
+## Content boundary
+
+The broker is authentication infrastructure and remains content-blind. It must never receive note content, vault paths, repository file contents, publishing manifests, destinations, bindings, publishing decisions, or Lighthouse state.
+
+Squido sends publishing content directly to the configured GitHub API destination after a user decision and with appropriate authorization.
 
 ## Publishing safety
 
 - Before each publish or republish, Squido presents a confirmation modal and an editable generated message.
 - Squido does not auto-publish, publish folders, or send note content to any service other than the configured GitHub API endpoint in the alpha.
-- Future Rules may suggest or select destinations, but they must not auto-publish unless the user explicitly enables that later behavior.
-- Optional auto-republish is later work and must require explicit warnings and granular controls.
+- Future Rules may suggest or select destinations, but must not auto-publish unless the user explicitly enables that later behavior.
+- Optional auto-republish remains later work and requires explicit warnings and granular controls.
+
+Public documentation intentionally omits production secrets and IDs, undocumented production endpoints, internal coordination keys, exact reservation timings, sensitive logs, recovery commands, and exploit reproduction instructions.

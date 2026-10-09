@@ -4,7 +4,7 @@ Squido is a lightweight publishing layer for Obsidian. It manages the publishing
 
 Squido exists for a narrow job: connect Obsidian notes to configured publishing destinations, publish selected notes, remember publish state, detect later local edits, and update the same remote files when the writer republishes. GitHub is the first destination provider; Squido does not present itself as a developer-facing Git client.
 
-The project is experimental. The first release was `0.1.0-alpha`; the current development build is `0.2.7-alpha.6`, focused on broker-grant hardening and device reauthorization before token vending, picker flows, or GitHub App credentialed publishing.
+The project is experimental. The first release was `0.1.0-alpha`; the current development build is `0.2.7-alpha.6`. Connection lifecycle, device/session hardening, device reauthorization, and broker-side metadata-only token vending are implemented. Squido-side repository discovery, picker flows, and GitHub App publishing are not yet implemented.
 
 ## Current alpha scope
 
@@ -42,13 +42,14 @@ Squido's lifecycle defaults are `Publish: {{title}}` for the first publish and `
 
 ## How Squido connects to GitHub
 
-The strategic auth model is GitHub App installation. In the current alpha, **Connect GitHub** starts a broker-backed GitHub App installation flow and stores installation metadata plus an alpha broker-grant connection artifact after completion. Squido uses that broker grant to verify an existing GitHub App connection without reopening GitHub. If a local device/session is revoked while the GitHub App remains installed, **Reauthorize This Device** can repair that device without requiring repository-access changes. This does not yet enable publishing, repository discovery, branch/folder picking, or destinations.
+The strategic auth model is GitHub App installation. In the current alpha, **Connect GitHub** starts the first broker-backed installation flow, **Verify Connection** checks the stored broker session, **Reauthorize This Device** repairs a disconnected local device, and **Manage GitHub Access** opens GitHub's repository-permission settings. The broker can vend a metadata-only installation token for repository discovery, but Squido does not call that capability yet. GitHub App publishing, repository discovery, pickers, and destination migration remain future work.
 
 Manual personal access tokens remain available during alpha as an explicit advanced/manual mode.
 
 Canonical docs:
 
-- [Authentication](docs/authentication.md)
+- [GitHub App authentication architecture](docs/github-app-auth-architecture.md) — canonical trust, lifecycle, storage, token, and failure model
+- [Authentication](docs/authentication.md) — user-facing setup and local storage posture
 - [Security](docs/security.md)
 - [Connections and destinations](docs/destinations.md)
 

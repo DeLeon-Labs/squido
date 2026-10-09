@@ -23,10 +23,11 @@ Squido's alpha implementation follows the publishing flow directly:
 
 ## Canonical docs
 
-- [Authentication](authentication.md): GitHub App strategy, manual PAT fallback, broker boundary, credential storage, and auth milestones.
+- [GitHub App authentication architecture](github-app-auth-architecture.md): canonical cross-repository trust, lifecycle, storage, token scope, content boundary, and failure model.
+- [Authentication](authentication.md): user-facing GitHub App setup, manual PAT fallback, and local credential storage posture.
 - [Security](security.md): concise security checklist and trust boundaries.
 - [Architecture decisions](decisions.md): accepted Squido-side ADR index.
-- [Secure credential storage investigation](credential-storage-investigation.md): platform research, threat model, options, and storage recommendation before token vending.
+- [Secure credential storage investigation](credential-storage-investigation.md): historical platform research, threat model, options, and storage recommendation.
 - [ADR-0001: Secure credential storage strategy](decisions/ADR-0001-secure-credential-storage.md): accepted direction for broker grants and future authentication material.
 - [ADR-0002: Authentication lifecycle](decisions/ADR-0002-authentication-lifecycle.md): accepted model for GitHub App installation, persistent connection, recognized device, broker session, and short-lived installation tokens.
 - [Publishing lifecycle](publishing-lifecycle.md): first publish, local edits, republish, and automation boundary.

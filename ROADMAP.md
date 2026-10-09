@@ -33,6 +33,40 @@ Goal: replace developer-oriented setup with a professional connection model.
 
 A connection represents access to a provider account or organization. It owns authentication/installation identity and exposes accessible repositories limited by granted permissions.
 
+The canonical trust and lifecycle model is [docs/github-app-auth-architecture.md](docs/github-app-auth-architecture.md). Authentication delivery status is:
+
+### Completed
+
+- GitHub App connection lifecycle: setup/callback, polling, persistent connection metadata, and broker-session verification
+- Device/session hardening: binding, grant hashing, expiration, revocation, and rotation
+- Device repair through broker-mediated GitHub OAuth
+- Broker-side metadata-only installation-token endpoint for the fixed `repo_discovery` purpose
+
+### Current hardening
+
+- `Cache-Control: no-store` on every credential-bearing response
+- SQLite-backed Durable Object serialization for token vending
+- Concurrent replay tests
+- Conservative stale-reservation recovery
+- Fail-closed handling for uncertain cross-system token-creation outcomes
+
+### Next
+
+- Squido calls the metadata-only token endpoint
+- Squido replaces its stored broker grant when token exchange returns a rotated grant
+- Squido performs direct GitHub repository discovery
+- Add the connection-scoped repository picker
+
+### Deferred
+
+- Branch and folder pickers
+- GitHub App publishing
+- Write-scoped token vending
+- Destination migration
+- Removal of manual PAT mode
+
+Manual PAT publishing remains an explicit **Advanced** fallback throughout the current sequence.
+
 ### 0.2.1 — GitHub App architecture plan
 
 - Define official Squido GitHub App configuration
@@ -79,7 +113,7 @@ Explicit non-goals:
 
 ### 0.2.4 — CredentialStore architecture
 
-Goal: establish credential persistence before token vending or any additional GitHub API functionality.
+Goal: establish credential persistence before additional GitHub API functionality.
 
 - Define `CredentialStore` interface and lifecycle
 - Document desktop secure storage as a possible future backend if it becomes available through supported Obsidian plugin capabilities
@@ -87,7 +121,7 @@ Goal: establish credential persistence before token vending or any additional Gi
 - Define how the plugin-data `CredentialStore` behaves across desktop and mobile
 - Separate plugin-data metadata from sensitive broker grants, manual PATs, and future tokens
 - Keep future storage backends possible without assuming they will exist or blocking the current plugin-only architecture
-- Do not implement token vending until the connection/device/session model is stable
+- Keep the connection/device/session model independent of future storage backends
 
 ### 0.2.5 — Repo access and picker planning
 
@@ -100,7 +134,7 @@ Goal: establish credential persistence before token vending or any additional Gi
 
 ### 0.2.6 — Squido modular architecture cleanup
 
-Goal: modularize the Squido plugin before adding token vending, repository pickers, branch/folder pickers, or publishing through GitHub App credentials.
+Goal: modularize the Squido plugin before adding repository pickers, branch/folder pickers, or publishing through GitHub App credentials.
 
 - Keep runtime behavior unchanged
 - Keep `main.ts` focused on plugin lifecycle and orchestration
@@ -111,11 +145,11 @@ Goal: modularize the Squido plugin before adding token vending, repository picke
 - Add a provider-agnostic `CredentialStore` seam
 - Keep plugin-data broker grant storage as the current plugin-only reference implementation with accurate security warnings
 - Leave room for future `SecureCredentialStore`, `SquidoConnectCredentialStore`, and `SessionOnlyCredentialStore`
-- Do not implement secure storage, token vending, picker flows, or destination-based publishing
+- Do not implement secure storage, picker flows, or destination-based publishing
 
 ### 0.2.7 — Broker grant hardening
 
-Goal: make broker grants revocable, device/session-aware connection artifacts before token vending, repository picker calls, or GitHub App credentialed publishing.
+Goal: make broker grants revocable, device/session-aware connection artifacts before repository picker calls or GitHub App credentialed publishing.
 
 The current plugin-data broker grant proves the reconnect architecture and behaves like a durable local session artifact. This milestone hardens that model without changing publishing behavior or claiming OS-secure storage.
 
@@ -133,7 +167,7 @@ Acceptance criteria:
 
 Explicit non-goals:
 
-- Token vending for publishing
+- Write-scoped token vending or token vending for publishing
 - Repository, branch, or folder pickers
 - Destination-based publishing
 - Secure OS-backed storage implementation
@@ -143,20 +177,21 @@ Explicit non-goals:
 
 Goal: integrate the auth broker into Squido without changing publishing behavior.
 
-This is the bridge between connection planning and destination-based publishing. It should prove the connection can drive the existing single-destination alpha publish flow before Squido introduces multiple destinations or a publishing router.
+This is the bridge between connection planning and destination-based publishing. The next slice integrates metadata-only token vending and repository discovery. Branch/folder selection, GitHub App publishing, and destination migration remain deferred until that slice is hardened.
 
 Acceptance criteria:
 
-- Connect GitHub works
-- Disconnect works
-- Repository picker works from granted GitHub App access
-- Branch picker works for the selected repository
-- Folder picker works for the selected repository and branch
-- Existing PAT users migrate cleanly into the new settings model
-- Existing Publish current note button still works
+- Squido calls the fixed-purpose metadata-only token endpoint
+- Squido replaces a rotated broker grant returned by token exchange
+- Squido queries GitHub directly for repositories available to the installation
+- Repository picker shows only repositories allowed by the GitHub App installation
+- Existing manual PAT publishing remains unchanged
 
 Explicit non-goals:
 
+- Branch and folder pickers
+- GitHub App publishing and write-scoped tokens
+- Destination migration or removal of manual PAT mode
 - Multiple destinations
 - Publishing router
 - Lighthouse integration
