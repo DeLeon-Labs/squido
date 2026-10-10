@@ -5,6 +5,7 @@ import { GITHUB_PAT_CREDENTIAL } from "./credentials/credentialStore";
 import { loadBuildInfo } from "./diagnostics/buildInfo";
 import { FileEventHandler } from "./fileEvents";
 import { GitHubClient } from "./githubClient";
+import { DestinationDiscovery } from "./destinationDiscovery";
 import { ManifestStore } from "./storage/manifestStore";
 import { commitMessageFor, Publisher } from "./publisher";
 import { SquidoSettingTab } from "./settings/settingsTab";
@@ -104,6 +105,11 @@ export default class SquidoPlugin extends Plugin {
 
   getSettings(): SquidoSettings {
     return this.manifestStore.getSettings();
+  }
+
+  getDestinationDiscovery(): DestinationDiscovery {
+    return new DestinationDiscovery(() => this.getSettings().connectionMode,
+      () => this.credentialStore.get(GITHUB_PAT_CREDENTIAL));
   }
 
   async updateSettings(settings: SquidoSettings): Promise<void> {
