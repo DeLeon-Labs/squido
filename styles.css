@@ -1,4 +1,9 @@
 .squido-setup { padding: var(--size-4-4); max-width: 880px; margin-inline: auto; }
+.squido-destination { display: flex; flex-direction: column; gap: var(--size-4-2); min-width: 0; }
+.squido-destination-field { display: flex; flex-direction: column; gap: var(--size-4-1); min-width: 0; }
+.squido-destination input, .squido-destination select { width: 100%; min-width: 0; max-width: 100%; min-height: 44px; }
+.squido-destination button { height: auto; min-height: 44px; white-space: normal; }
+.squido-destination :focus-visible { outline: 2px solid var(--interactive-accent); outline-offset: 2px; }
 .squido-connection-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--size-4-3); }
 .squido-connection-card { display: grid; grid-template-columns: 1.5rem 1fr; gap: var(--size-4-2); width: 100%; height: auto; min-height: 96px; padding: var(--size-4-4); white-space: normal; text-align: start; border: 2px solid var(--background-modifier-border); border-radius: var(--radius-l); background: var(--background-secondary); color: var(--text-normal); box-shadow: none; }
 .squido-connection-card.is-selected { border-color: var(--interactive-accent); }

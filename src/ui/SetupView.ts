@@ -2,6 +2,7 @@ import { ItemView, Notice, type WorkspaceLeaf } from "obsidian";
 import type SquidoPlugin from "../main";
 import { renderConnectionSection } from "../settings/connectionSection";
 import { renderManualPatSection } from "../settings/staticSections";
+import { renderDestinationSection } from "../settings/destinationSection";
 import type { ConnectionMode } from "../types";
 
 export const SETUP_VIEW_TYPE = "squido-welcome-setup";
@@ -89,5 +90,6 @@ export class SetupView extends ItemView {
       container.createEl("p", { text: "Current alpha limitation: GitHub App authorization works, but App-based publishing is not implemented. The existing broker vending scope is metadata read for repository discovery, not Contents write. Publishing is disabled in this mode rather than silently using a PAT. Choose Use my own token for publishing now." });
       renderConnectionSection(container, this.plugin, settings, () => this.render());
     }
+    renderDestinationSection(container, this.plugin);
   }
 }

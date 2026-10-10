@@ -25,10 +25,7 @@ export function renderManualPatSection(containerEl: HTMLElement, plugin: SquidoP
       try { await plugin.forgetGitHubPat(); new Notice("Local token cleared. Revoke it separately in GitHub settings."); }
       catch { new Notice("Token could not be cleared. Check SecretStorage on this device."); }
     }));
-  renderTextSetting(containerEl, plugin, settings, "Owner or organization", "The GitHub account that owns the repository.", "owner");
-  renderTextSetting(containerEl, plugin, settings, "Repository", "Repository name without the owner.", "repo");
-  renderTextSetting(containerEl, plugin, settings, "Branch", "Branch to publish to.", "branch");
-  renderTextSetting(containerEl, plugin, settings, "Target folder", "Optional repository folder. The note filename is appended.", "targetFolder");
+
   renderTextSetting(containerEl, plugin, settings, "Default commit message", "Use {{title}} to insert the note title.", "commitMessageTemplate");
 }
 

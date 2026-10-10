@@ -1,6 +1,7 @@
 import { PluginSettingTab, Setting, type App } from "obsidian";
 import type SquidoPlugin from "../main";
 import { renderConnectionSection } from "./connectionSection";
+import { renderDestinationSection } from "./destinationSection";
 import { renderDeveloperSection, renderManualPatSection } from "./staticSections";
 
 export class SquidoSettingTab extends PluginSettingTab {
@@ -24,6 +25,8 @@ export class SquidoSettingTab extends PluginSettingTab {
       .addButton((button) => button.setButtonText("Open Welcome / Setup").onClick(() => this.plugin.openSetup()));
     if (settings.connectionMode === "pat") renderManualPatSection(containerEl, this.plugin, settings);
     else renderConnectionSection(containerEl, this.plugin, settings, () => this.display());
+
+    renderDestinationSection(containerEl, this.plugin);
 
     renderDeveloperSection(containerEl, this.plugin.getBuildInfo(), this.plugin.getBuildInfoDiagnostics());
   }
