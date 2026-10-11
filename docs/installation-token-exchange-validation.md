@@ -29,10 +29,14 @@ This is single-runtime coordination, not cross-device/global KV consistency, an 
 
 ## Actual local evidence
 
-- `pnpm test`: 109 passed, zero failures (mocked network/Obsidian boundaries, real controller and SecretStorageCredentialStore).
+- `pnpm test`: 112 passed, zero failures (mocked network/Obsidian boundaries, real controller and SecretStorageCredentialStore).
 - `pnpm run typecheck`, `pnpm run build`, `git diff --check`: exit 0.
 - Coverage: closed release gate before network/credentials; integrated exchange→rotation→GitHub metadata; verify/disconnect/repair/mode draining; delayed credential commits; stale and ABA pages/queued operations/UI choices; blocked uncertain exchange recovery; context substitution; pagination/totals/malformed responses/expiry/errors; no token persistence/raw response logging; existing PAT publishing regression tests.
 - Review bundle in the isolated worktree `dist/`: main.js, manifest.json, styles.css. Generated files are not committed. No live broker/GitHub, GUI/platform-storage acceptance, publishing or deployment tests performed.
+
+## Independent review and corrections
+
+One separate read-only Codex `gpt-5.6-sol` / Medium review completed with exit 0. It found a medium no-op refresh regression: focus/visibility checks advanced the generation even without pending auth work. Lovelace fixed admission so no-pending/throttled refreshes and obsolete polls do not advance generation; actual pending polling still does. Regression tests verify cached generation remains usable for a destination save. Lovelace also changed resume-pending expiry writes from fire-and-forget to awaited writes inside the queue, with a delayed-write drain test. Final 112-test suite, typecheck and build passed after these fixes. The reviewer did not rerun tests or review the subsequent fix diff; no second worker/pass was launched. Same-family separate harness does not guarantee independent judgment.
 
 ## Real gates (later, not an action required now for source delivery)
 

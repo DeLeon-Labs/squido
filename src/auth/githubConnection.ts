@@ -388,6 +388,13 @@ export class GitHubConnectionController {
   }
 
   async refreshPending(options: { showNotice?: boolean; force?: boolean } = {}): Promise<void> {
+    const current = this.options.manifestStore.getSettings().githubAppConnection;
+    // Focus/visibility refresh is not an auth mutation when no flow needs polling.
+    if (current.status !== "pending") {
+      if (options.showNotice) new Notice("No pending GitHub connection to refresh.");
+      return;
+    }
+    if (!options.force && !shouldRefreshPendingConnection(current)) return;
     await this.lifecycle.run(() => this.refreshPendingInternal(options));
   }
   private async refreshPendingInternal(options: { showNotice?: boolean; force?: boolean }): Promise<void> {
@@ -423,9 +430,10 @@ export class GitHubConnectionController {
   }
 
   resumePending(): void {
-    void this.lifecycle.run(async () => this.resumePendingInternal()).catch(() => undefined);
+    if (this.options.manifestStore.getSettings().githubAppConnection.status !== "pending") return;
+    void this.lifecycle.run(() => this.resumePendingInternal()).catch(() => undefined);
   }
-  private resumePendingInternal(): void {
+  private async resumePendingInternal(): Promise<void> {
     const connection = this.options.manifestStore.getSettings().githubAppConnection;
     const setupFlow = currentSetupFlow(connection);
     const flowId = setupFlow?.flow_id;
@@ -433,7 +441,7 @@ export class GitHubConnectionController {
     if (connection.status !== "pending") return;
 
     if (!flowId || !expiresAt || isTimestampExpiredOrInvalid(expiresAt)) {
-      void this.updateState({
+      await this.updateState({
         status: "expired",
         last_error: flowId
           ? "GitHub connection flow expired."
@@ -466,6 +474,8 @@ export class GitHubConnectionController {
   }
 
   private async poll(flowId: string, expiresAt: string): Promise<void> {
+    const current = this.options.manifestStore.getSettings().githubAppConnection;
+    if (current.status !== "pending" || currentSetupFlow(current)?.flow_id !== flowId) return;
     await this.lifecycle.run(() => this.pollInternal(flowId, expiresAt));
   }
   private async pollInternal(flowId: string, expiresAt: string): Promise<void> {

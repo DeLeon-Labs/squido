@@ -204,6 +204,37 @@ test("broker URL changes invalidate pending flows rather than poll the old flow 
   assert.equal(h.calls.length, 0); assert.equal(h.manifest.getSettings().githubAppConnection.status, "failed");
 });
 
+test("focus/visibility no-op refresh and obsolete polls preserve picker generation", async () => {
+  const h = await harness(); const generation = h.controller.authGeneration;
+  await h.controller.refreshPending(); await h.controller.refreshPending({ force: true });
+  h.controller.resumePending(); await (h.controller as any).poll("obsolete", iso(600_000)); await settle();
+  assert.equal(h.controller.authGeneration, generation); assert.equal(h.calls.length, 0);
+  await h.controller.updateUserSettings({ ...h.manifest.getSettings(), repo: "still-current" }, generation);
+  assert.equal(h.manifest.getSettings().repo, "still-current");
+});
+
+test("throttled pending refresh does not invalidate generation, actual poll still does", async () => {
+  const h = await harness();
+  await h.manifest.updateSettings({ ...h.manifest.getSettings(), githubAppConnection: { status: "pending", flow_id: "flow", auth_url: "https://github.com", expires_at: iso(600_000), started_at: iso(0), poll_interval_seconds: 2, last_status_checked_at: iso(0) } });
+  const generation = h.controller.authGeneration; await h.controller.refreshPending();
+  assert.equal(h.controller.authGeneration, generation); assert.equal(h.calls.length, 0);
+  h.hook(async () => response({ status: "pending", flow_id: "flow", expires_at: iso(600_000), poll_interval_seconds: 2 }));
+  await h.controller.refreshPending({ force: true });
+  assert.ok(h.controller.authGeneration > generation); assert.equal(h.calls.length, 1);
+});
+
+test("resume-pending expiry state write is part of full-operation drain", async () => {
+  const h = await harness();
+  await h.manifest.updateSettings({ ...h.manifest.getSettings(), githubAppConnection: { status: "pending" } });
+  const write = deferred<void>(); const original = h.manifest.updateSettings.bind(h.manifest); let writing = false;
+  h.manifest.updateSettings = async (settings) => { if (settings.githubAppConnection.status === "expired") { writing = true; await write.promise; } await original(settings); };
+  h.controller.resumePending(); await settle(); assert.equal(writing, true);
+  let drained = false; const pause = h.controller.quiesce().then(() => { drained = true; });
+  await settle(); assert.equal(drained, false);
+  write.resolve(); await pause;
+  assert.equal(h.manifest.getSettings().githubAppConnection.status, "expired");
+});
+
 test("development broker diagnostics never log raw reusable grant responses", async () => {
   const logs: unknown[][] = []; const original = console.debug; console.debug = (...args) => { logs.push(args); };
   try { await new BrokerAuthClient("https://broker.test", true, async () => response(verified()) as any).verifyGitHubConnection("fixture-original", "device-session-a"); }
