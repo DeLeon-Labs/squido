@@ -52,7 +52,8 @@ test("network, missing credential, malformed response, file path and large folde
 test("App discovery is fail-closed before credential or network access and mode changes discard late results", async () => {
   let tokens = 0, calls = 0;
   const discovery = client(async () => { calls++; }, () => "broker", async () => { tokens++; return "fixture-pat"; });
-  for (const action of [() => discovery.repositories(), () => discovery.branches(target), () => discovery.folders(target)]) await assert.rejects(action(), /no authorized installation-token/);
+  await assert.rejects(discovery.repositories(), /pending broker security/);
+  for (const action of [() => discovery.branches(target), () => discovery.folders(target)]) await assert.rejects(action(), /metadata-only discovery/);
   assert.equal(tokens, 0); assert.equal(calls, 0);
   let mode: "pat" | "broker" = "pat";
   const changed = client(async () => { mode = "broker"; return { status: 200, json: [row("private")] }; }, () => mode);
@@ -97,11 +98,12 @@ async function ui(mode: "pat" | "broker" = "pat", discovery: any = { repositorie
   let saved: any = { settings: { ...DEFAULT_SETTINGS, ...target, connectionMode: mode, credentialRefs: { githubPat: "secret-ref" } }, manifest: {} };
   const store = new ManifestStore(async () => saved, async (data) => { saved = data; }); await store.initialize();
   const root = new Element(); let failSave = false;
-  renderDestinationSection(root as any, { getSettings: () => store.getSettings(), getDestinationDiscovery: () => discovery, updateSettings: async (settings: any) => { if (failSave) throw new Error("disk write failed"); await store.updateSettings(settings); } } as any);
+  let generation = 0;
+  renderDestinationSection(root as any, { getSettings: () => store.getSettings(), getAuthGeneration: () => generation, getDestinationDiscovery: () => discovery, updateSettings: async (settings: any) => { if (failSave) throw new Error("disk write failed"); await store.updateSettings(settings); } } as any);
   const button = async (name: string) => { root.all().find((el) => el.tag === "button" && el.textContent === name)!.handlers.click(); await settle(); };
   const field = (label: string) => root.all().find((el) => el.attrs["aria-label"] === label)!;
   const status = () => root.all().find((el) => el.attrs.role === "status")!.textContent;
-  return { root, store, button, field, status, fail: () => { failSave = true; }, reload: async () => { const fresh = new ManifestStore(async () => saved, async () => undefined); await fresh.initialize(); return fresh; } };
+  return { root, store, button, field, status, advanceAuth: () => { generation++; }, fail: () => { failSave = true; }, reload: async () => { const fresh = new ManifestStore(async () => saved, async () => undefined); await fresh.initialize(); return fresh; } };
 }
 
 test("native picker stages account/repo/branch/nested folder, explicit save restores exact path after reload", async () => {
@@ -140,6 +142,37 @@ test("App UI has no discovery buttons but preserves manual settings; detached UI
   const pending = h.button("Load accessible repositories"); await settle(); h.root.children[0].isConnected = false;
   release([{ owner: "other", name: "private", defaultBranch: "main" }]); await pending; await settle();
   assert.match(h.status(), /view changed/); assert.equal(h.store.getSettings().owner, "org");
+});
+
+test("App capability picker stages installation metadata without branch/folder loaders or writable claims", async () => {
+  const h = await ui("broker", { appRepositoriesAvailable: () => true, repositories: async () => [{ owner: "org", name: "readonly", defaultBranch: "main" }] });
+  await h.button("Load accessible repositories"); assert.match(h.status(), /metadata visibility, not write permission/);
+  const account = h.field("Accessible account / organization"); account.value = "org"; account.handlers.change();
+  const repo = h.field("Installation-accessible repositories (metadata only)"); repo.value = "readonly"; repo.handlers.change();
+  assert.equal(h.store.getSettings().repo, "notes");
+  assert.ok(!h.root.all().some((el) => el.tag === "button" && ["Load branches", "Browse target folder"].includes(el.textContent)));
+  await h.button("Save current destination"); assert.equal(h.store.getSettings().repo, "readonly");
+  assert.match(h.status(), /Publishing still requires PAT mode/);
+});
+
+test("auth-generation ABA invalidates cached picker choices and save even when mode is unchanged", async () => {
+  const h = await ui("broker", { appRepositoriesAvailable: () => true, repositories: async () => [{ owner: "other", name: "readonly", defaultBranch: "main" }] });
+  await h.button("Load accessible repositories");
+  h.advanceAuth(); h.advanceAuth();
+  const account = h.field("Accessible account / organization"); account.value = "other"; account.handlers.change();
+  assert.equal(h.field("Owner or organization").value, "org");
+  await h.button("Save current destination"); assert.match(h.status(), /view changed/);
+  assert.equal(h.store.getSettings().repo, "notes");
+});
+
+test("App empty access and late epoch changes preserve manual destination", async () => {
+  const empty = await ui("broker", { appRepositoriesAvailable: () => true, repositories: async () => [] });
+  await empty.button("Load accessible repositories"); assert.match(empty.status(), /No repositories available to this installation/);
+  let release!: (value: any) => void;
+  const h = await ui("broker", { appRepositoriesAvailable: () => true, repositories: () => new Promise((resolve) => { release = resolve; }) });
+  const loading = h.button("Load accessible repositories"); await settle(); h.advanceAuth();
+  release([{ owner: "other", name: "readonly", defaultBranch: "main" }]); await loading; await settle();
+  assert.match(h.status(), /view changed/); assert.equal(h.store.getSettings().repo, "notes");
 });
 
 test("reloaded single destination drives real GitHub publish GET/PUT with nested path and exact branch", async () => {

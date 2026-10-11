@@ -9,6 +9,8 @@ export interface DiscoveryTokenContext {
   connectionId: string;
   installationId: string;
   deviceSessionId: string;
+  /** Monotonic lifecycle revision; detects A→B→A even when identity is unchanged. */
+  generation?: number;
 }
 export interface DiscoveryAuthorization {
   token: string;
@@ -16,9 +18,8 @@ export interface DiscoveryAuthorization {
   purpose: "repo_discovery";
 }
 
-/** Dormant integration seam. No production caller until broker security/manual gates are accepted.
- * One instance per connection lifecycle; callers must drain it before verification, disconnect,
- * repair or mode changes (all can rotate/revoke the same grant). Never cache the authorization.
+/** One instance per coordinated connection lifecycle. Callers drain the full operation before
+ * verification, disconnect, repair or mode changes. Never cache the authorization.
  */
 export class InstallationTokenExchange {
   private busy = false;
@@ -60,9 +61,11 @@ export class InstallationTokenExchange {
         }
         const body: unknown = response.json;
         if (!isDiscoveryResponse(body, context, grant, this.now())) throw new Error(TOKEN_EXCHANGE_ERROR);
-        if (!this.matches(context) || await this.credentials.get(GITHUB_BROKER_GRANT_CREDENTIAL) !== grant) {
+        if (!this.matches(context, true) || await this.credentials.get(GITHUB_BROKER_GRANT_CREDENTIAL) !== grant) {
           throw new Error(TOKEN_EXCHANGE_ERROR);
         }
+        // Save valid rotation even if a queued mutation invalidated discovery's generation.
+        // Shared lifecycle serialization keeps identity/mode stable until this write completes.
         // Only the rotated broker grant is durable. Never persist the installation token.
         await this.credentials.set(GITHUB_BROKER_GRANT_CREDENTIAL, body.broker_grant);
         if (!this.matches(context) || !validExpiry(body.expires_at, this.now(), 60 * 60 * 1000)) {
@@ -80,9 +83,10 @@ export class InstallationTokenExchange {
     }
   }
 
-  private matches(expected: DiscoveryTokenContext): boolean {
+  private matches(expected: DiscoveryTokenContext, ignoreGeneration = false): boolean {
     const current = this.context();
-    return (Object.keys(expected) as Array<keyof DiscoveryTokenContext>).every((key) => current[key] === expected[key]);
+    return (Object.keys(expected) as Array<keyof DiscoveryTokenContext>).every((key) =>
+      (ignoreGeneration && key === "generation") || current[key] === expected[key]);
   }
 }
 

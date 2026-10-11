@@ -3,17 +3,26 @@ import type { ConnectionMode } from "./types";
 
 export interface CurrentDestination { owner: string; repo: string; branch: string; targetFolder: string }
 export interface RepositoryChoice { owner: string; name: string; defaultBranch: string }
-export const APP_DISCOVERY_UNAVAILABLE = "GitHub App destination discovery is unavailable: this plugin has no authorized installation-token integration. No PAT fallback is used. App publishing remains disabled. Use PAT mode or preserve your manual destination for later.";
+export const APP_DISCOVERY_UNAVAILABLE = "GitHub App repository discovery is unavailable pending broker security acceptance and authorized rollout. No PAT fallback is used. App publishing remains disabled. Preserve your manual destination for later.";
+export const APP_CONTENTS_UNAVAILABLE = "GitHub App branch/folder browsing is unavailable: metadata-only discovery does not authorize contents access. App publishing remains disabled. No PAT fallback is used.";
+export interface AppRepositoryDiscovery { available(): boolean; repositories(): Promise<RepositoryChoice[]> }
 
-/** Discovery never calls the broker, persists tokens, or follows server-provided URLs. */
+/** PAT discovery stays independent; App repository-only access delegates to the shared auth controller. */
 export class DestinationDiscovery {
   constructor(
     private readonly mode: () => ConnectionMode | undefined,
     private readonly token: () => Promise<string | null>,
     private readonly send: typeof requestUrl = requestUrl,
+    private readonly app?: AppRepositoryDiscovery,
   ) {}
 
+  appRepositoriesAvailable(): boolean { return this.app?.available() ?? false; }
+
   async repositories(): Promise<RepositoryChoice[]> {
+    if (this.mode() !== "pat") {
+      if (!this.appRepositoriesAvailable()) throw new Error(APP_DISCOVERY_UNAVAILABLE);
+      return this.app!.repositories();
+    }
     const rows = await this.pages("/user/repos?affiliation=owner,collaborator,organization_member&sort=full_name");
     const repositories: RepositoryChoice[] = [];
     for (const row of rows) {
@@ -26,11 +35,13 @@ export class DestinationDiscovery {
   }
 
   async branches(destination: CurrentDestination): Promise<string[]> {
+    if (this.mode() !== "pat") throw new Error(APP_CONTENTS_UNAVAILABLE);
     const rows = await this.pages(`${repoEndpoint(destination)}/branches?`);
     return rows.flatMap((row) => isRecord(row) && typeof row.name === "string" ? [row.name] : []);
   }
 
   async folders(destination: CurrentDestination): Promise<string[]> {
+    if (this.mode() !== "pat") throw new Error(APP_CONTENTS_UNAVAILABLE);
     validateDestination(destination);
     const path = destination.targetFolder.trim().replace(/^\/+|\/+$/g, "");
     const rows = await this.get(`${repoEndpoint(destination)}/contents/${path.split("/").map(encodeURIComponent).join("/")}?ref=${encodeURIComponent(destination.branch.trim())}`, "folder");

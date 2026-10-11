@@ -1,10 +1,11 @@
 import type SquidoPlugin from "../main";
-import { APP_DISCOVERY_UNAVAILABLE, validateDestination, type CurrentDestination, type RepositoryChoice } from "../destinationDiscovery";
+import { APP_DISCOVERY_UNAVAILABLE, APP_CONTENTS_UNAVAILABLE, validateDestination, type CurrentDestination, type RepositoryChoice } from "../destinationDiscovery";
 
 /** One implicit destination, staged locally until explicit save. Browsing never persists a parent path. */
 export function renderDestinationSection(container: HTMLElement, plugin: SquidoPlugin): void {
   const settings = plugin.getSettings();
   const mode = settings.connectionMode;
+  const generation = plugin.getAuthGeneration?.();
   const discovery = plugin.getDestinationDiscovery();
   const section = container.createDiv({ cls: "squido-destination" });
   section.createEl("h3", { text: "Current publish destination" });
@@ -25,7 +26,9 @@ export function renderDestinationSection(container: HTMLElement, plugin: SquidoP
   const picker = (label: string, select: (value: string) => void) => {
     const wrap = section.createEl("label", { cls: "squido-destination-field" }); wrap.createSpan({ text: label });
     const el = wrap.createEl("select"); el.setAttribute("aria-label", label); controls.push(el);
-    el.addEventListener("change", () => select(el.value)); return el;
+    el.addEventListener("change", () => {
+      try { stillCurrent(); select(el.value); } catch { status.textContent = "Connection or view changed. Reopen destination settings and retry."; }
+    }); return el;
   };
   const options = (el: HTMLSelectElement, values: string[], prompt: string) => {
     el.empty(); el.createEl("option", { text: prompt, value: "" });
@@ -39,7 +42,7 @@ export function renderDestinationSection(container: HTMLElement, plugin: SquidoP
     options(repos, repositories.filter((item) => item.owner === value).map((item) => item.name), "Choose repository");
     options(branches, [], "Load branches for the selected repository"); options(folders, [], "Browse the target folder");
   });
-  const repos = picker("Writable repositories", (value) => {
+  const repos = picker(mode === "pat" ? "Writable repositories" : "Installation-accessible repositories (metadata only)", (value) => {
     const choice = repositories.find((item) => item.owner === owner.value && item.name === value);
     if (!choice) return;
     repo.value = choice.name; branch.value = choice.defaultBranch; folder.value = "";
@@ -59,24 +62,28 @@ export function renderDestinationSection(container: HTMLElement, plugin: SquidoP
   const run = async (task: () => Promise<void>) => {
     if (busy) return;
     busy = true; controls.forEach((control) => { control.disabled = true; }); section.setAttribute("aria-busy", "true"); status.textContent = "Working…";
-    try { await task(); }
+    try { stillCurrent(); await task(); }
     catch (error) { status.textContent = error instanceof Error ? error.message : "Destination operation failed. Your saved destination is unchanged."; }
     finally { busy = false; controls.forEach((control) => { control.disabled = false; }); section.setAttribute("aria-busy", "false"); }
   };
   const stillCurrent = () => {
-    if (plugin.getSettings().connectionMode !== mode || !section.isConnected) throw new Error("Connection or view changed. Reopen destination settings and retry.");
+    if (plugin.getSettings().connectionMode !== mode || plugin.getAuthGeneration?.() !== generation || !section.isConnected) throw new Error("Connection or view changed. Reopen destination settings and retry.");
   };
   const button = (label: string, task: () => Promise<void>) => {
     const el = section.createEl("button", { text: label }); el.type = "button"; controls.push(el);
     el.addEventListener("click", () => void run(task)); return el;
   };
-  if (mode === "pat") {
+  if (mode === "pat" || discovery.appRepositoriesAvailable?.()) {
     button("Load accessible repositories", async () => {
       repositories = await discovery.repositories(); stillCurrent();
       options(accounts, [...new Set(repositories.map((item) => item.owner))].sort(), "Choose account / organization");
       options(repos, [], "Choose account first"); options(branches, [], "Load branches"); options(folders, [], "Browse folders");
-      status.textContent = repositories.length ? "Select an account, then a writable repository. Only PAT-accessible repositories with confirmed push permission are listed; branch rules can still block publishing." : "No writable repositories available. Check selected PAT repositories, Contents read/write and organization approval. Existing manual settings are unchanged.";
+      status.textContent = mode === "pat"
+        ? repositories.length ? "Select an account, then a writable repository. Only PAT-accessible repositories with confirmed push permission are listed; branch rules can still block publishing." : "No writable repositories available. Check selected PAT repositories, Contents read/write and organization approval. Existing manual settings are unchanged."
+        : repositories.length ? "Select an installation-accessible repository. This is metadata visibility, not write permission. Branch/folder browsing and App publishing remain disabled." : "No repositories available to this installation. Check selected App repositories and organization approval; existing manual settings are unchanged.";
     });
+  } else status.textContent = APP_DISCOVERY_UNAVAILABLE;
+  if (mode === "pat") {
     button("Load branches", async () => {
       const values = await discovery.branches(destination()); stillCurrent(); options(branches, values, "Choose branch");
       status.textContent = values.length ? "Branches loaded. Choose one or keep your manual branch." : "No branches found. The repository may be empty; create a branch on GitHub first.";
@@ -85,10 +92,10 @@ export function renderDestinationSection(container: HTMLElement, plugin: SquidoP
       const values = await discovery.folders(destination()); stillCurrent(); options(folders, values, "Choose child folder");
       status.textContent = values.length ? "Folder verified. Choose a child, then browse again to go deeper, or save this exact path." : "Folder verified; no child folders. Save this path or enter a new nested folder manually.";
     });
-  } else status.textContent = APP_DISCOVERY_UNAVAILABLE;
+  } else section.createEl("p", { text: APP_CONTENTS_UNAVAILABLE });
   button("Save current destination", async () => {
     stillCurrent(); const next = destination(); validateDestination(next);
-    await plugin.updateSettings({ ...plugin.getSettings(), ...next });
+    await plugin.updateSettings({ ...plugin.getSettings(), ...next }, generation);
     status.textContent = "Current destination saved. The exact folder path will be restored after reload. Publishing still requires PAT mode and GitHub permission.";
   });
 }

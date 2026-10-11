@@ -248,7 +248,8 @@ export class BrokerAuthClient {
 
   private debugLog(label: string, value: unknown): void {
     if (!this.debug) return;
-    console.debug(`[Squido] ${label}`, value);
+    // Responses may contain reusable broker grants. Never log raw/normalized payloads.
+    console.debug(`[Squido] ${label}`);
   }
 }
 
