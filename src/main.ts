@@ -85,21 +85,21 @@ export default class SquidoPlugin extends Plugin {
     this.addRibbonIcon("upload", "Publish current note", () => void this.publishCurrentNote());
     this.registerEvent(this.app.workspace.on("active-leaf-change", () => void this.refreshStatus()));
     this.registerDomEvent(window, "focus", () => {
-      if (this.brokerEnabled()) void this.githubConnection.refreshPending();
+      if (this.brokerEnabled()) void this.githubConnection.refreshPending().catch(() => undefined);
     });
     this.registerDomEvent(document, "visibilitychange", () => {
-      if (document.visibilityState === "visible" && this.brokerEnabled()) void this.githubConnection.refreshPending();
+      if (document.visibilityState === "visible" && this.brokerEnabled()) void this.githubConnection.refreshPending().catch(() => undefined);
     });
     this.fileEvents.start();
     if (this.brokerEnabled()) {
-      void this.githubConnection.refreshStored({ showNotice: false });
+      void this.githubConnection.refreshStored({ showNotice: false }).catch(() => undefined);
       this.githubConnection.resumePending();
     }
     await this.refreshStatus();
   }
 
   onunload(): void {
-    this.githubConnection?.stopPolling();
+    void this.githubConnection?.quiesce();
     this.fileEvents?.stop();
   }
 
@@ -109,32 +109,29 @@ export default class SquidoPlugin extends Plugin {
 
   getDestinationDiscovery(): DestinationDiscovery {
     return new DestinationDiscovery(() => this.getSettings().connectionMode,
-      () => this.credentialStore.get(GITHUB_PAT_CREDENTIAL));
+      () => this.credentialStore.get(GITHUB_PAT_CREDENTIAL), undefined,
+      { available: () => this.githubConnection.repositoryDiscoveryAvailable(), repositories: () => this.githubConnection.discoverRepositories() });
   }
 
-  async updateSettings(settings: SquidoSettings): Promise<void> {
-    await this.manifestStore.updateSettings(settings);
+  getAuthGeneration(): number { return this.githubConnection.authGeneration; }
+
+  async updateSettings(settings: SquidoSettings, expectedGeneration?: number): Promise<void> {
+    await this.githubConnection.updateUserSettings(settings, expectedGeneration);
   }
 
   async saveGitHubPat(value: string): Promise<void> {
-    await this.credentialStore.set(GITHUB_PAT_CREDENTIAL, value.trim());
+    await this.githubConnection.coordinateLocalChange(() => this.credentialStore.set(GITHUB_PAT_CREDENTIAL, value.trim()));
   }
 
   async forgetGitHubPat(): Promise<void> {
-    await this.credentialStore.delete(GITHUB_PAT_CREDENTIAL);
+    await this.githubConnection.coordinateLocalChange(() => this.credentialStore.delete(GITHUB_PAT_CREDENTIAL));
   }
 
   private brokerEnabled(): boolean { return this.getSettings().connectionMode === "broker"; }
 
   async selectConnectionMode(mode: ConnectionMode): Promise<void> {
     if (mode !== "broker" && mode !== "pat") throw new Error("Invalid connection mode.");
-    // Quiesce in-flight requests before committing PAT mode; no broker operation may start afterward.
-    await this.githubConnection.quiesce();
-    try {
-      await this.updateSettings({ ...this.getSettings(), connectionMode: mode, setupSelectionMade: true });
-    } finally {
-      if (this.brokerEnabled()) this.githubConnection.resumeBroker();
-    }
+    await this.githubConnection.selectConnectionMode(mode);
   }
 
   async openSetup(): Promise<void> {

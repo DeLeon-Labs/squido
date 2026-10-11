@@ -3,6 +3,15 @@ import { BrokerAuthClient, type GitHubAuthStatusResponse } from "./brokerAuthCli
 import { GITHUB_BROKER_GRANT_CREDENTIAL, type CredentialStore } from "../credentials/credentialStore";
 import type { ManifestStore } from "../storage/manifestStore";
 import type { GitHubAppConnectionMetadata, GitHubAppConnectionState } from "../types";
+import type { ConnectionMode } from "../types";
+import type { SquidoSettings } from "../types";
+import { AuthLifecycle, STALE_AUTH_OPERATION } from "./authLifecycle";
+import { InstallationTokenExchange } from "./installationTokenExchange";
+import { listInstallationRepositories } from "../installationRepositories";
+import type { RepositoryChoice } from "../destinationDiscovery";
+
+// Release gate: broker PR #9 security acceptance/rollout/live vending remain unapproved.
+export const APP_REPOSITORY_DISCOVERY_RELEASED = false;
 
 export interface GitHubConnectionControllerOptions {
   manifestStore: ManifestStore;
@@ -11,9 +20,13 @@ export interface GitHubConnectionControllerOptions {
   isDevelopmentBuild: () => boolean;
   registerInterval: (id: number) => void;
   onStateChange: () => void;
+  /** Test/integration injection only. Production never supplies this override. */
+  repositoryDiscoveryApproved?: () => boolean;
 }
 
 export class GitHubConnectionController {
+  private readonly lifecycle: AuthLifecycle;
+  private tokenExchange: InstallationTokenExchange;
   private activeConnectionPoll: number | null = null;
   private suspended = false;
   private requests = new Set<Promise<unknown>>();
@@ -21,14 +34,81 @@ export class GitHubConnectionController {
   async quiesce(): Promise<void> {
     this.suspended = true;
     this.stopPolling();
+    await this.lifecycle.pause();
     await Promise.allSettled([...this.requests]);
   }
 
-  resumeBroker(): void { this.suspended = false; }
+  resumeBroker(): void { this.suspended = false; this.lifecycle.resume(); }
 
-  constructor(private readonly options: GitHubConnectionControllerOptions) {}
+  constructor(private readonly options: GitHubConnectionControllerOptions) {
+    this.lifecycle = new AuthLifecycle(() => this.options.manifestStore.getSettings().connectionMode !== "pat");
+    this.tokenExchange = this.newTokenExchange();
+  }
+
+  get authGeneration(): number { return this.lifecycle.generation; }
+  repositoryDiscoveryAvailable(): boolean {
+    return (this.options.repositoryDiscoveryApproved?.() ?? APP_REPOSITORY_DISCOVERY_RELEASED) &&
+      !this.suspended && this.options.manifestStore.getSettings().connectionMode === "broker";
+  }
+  async discoverRepositories(): Promise<RepositoryChoice[]> {
+    if (!this.repositoryDiscoveryAvailable()) throw new Error("GitHub App repository discovery is disabled pending broker security acceptance and authorized rollout. No PAT fallback is used.");
+    const generation = this.lifecycle.generation;
+    return this.lifecycle.run(async () => {
+      this.lifecycle.assertCurrent(generation);
+      const rows = await this.tokenExchange.withRepoDiscoveryToken((authorization) =>
+        listInstallationRepositories(authorization, () => this.lifecycle.assertCurrent(generation)));
+      this.lifecycle.assertCurrent(generation);
+      return rows;
+    }, false);
+  }
+
+  async selectConnectionMode(mode: ConnectionMode): Promise<void> {
+    if (mode !== "broker" && mode !== "pat") throw new Error("Invalid connection mode.");
+    this.stopPolling();
+    await this.lifecycle.transition(async () => {
+      this.stopPolling();
+      const settings = this.options.manifestStore.getSettings();
+      await this.options.manifestStore.updateSettings({ ...settings, connectionMode: mode, setupSelectionMade: true });
+      this.options.onStateChange();
+    });
+  }
+
+  coordinateLocalChange<T>(operation: () => Promise<T>): Promise<T> {
+    return this.lifecycle.transition(operation);
+  }
+  async updateUserSettings(settings: SquidoSettings, expectedGeneration?: number): Promise<void> {
+    if (expectedGeneration !== undefined && expectedGeneration !== this.lifecycle.generation) throw new Error(STALE_AUTH_OPERATION);
+    const commitGeneration = this.lifecycle.generation + 1;
+    await this.lifecycle.transition(async () => {
+      if (expectedGeneration !== undefined && this.lifecycle.generation !== commitGeneration) throw new Error(STALE_AUTH_OPERATION);
+      const current = this.options.manifestStore.getSettings();
+      const brokerChangedDuringSetup = current.authBrokerBaseUrl !== settings.authBrokerBaseUrl && current.githubAppConnection.status === "pending";
+      if (brokerChangedDuringSetup) this.stopPolling();
+      // UI snapshots must never overwrite freshly rotated grants, credential references or auth state.
+      await this.options.manifestStore.updateSettings({ ...current, owner: settings.owner, repo: settings.repo,
+        branch: settings.branch, targetFolder: settings.targetFolder, commitMessageTemplate: settings.commitMessageTemplate,
+        authBrokerBaseUrl: settings.authBrokerBaseUrl,
+        githubAppConnection: brokerChangedDuringSetup ? { ...current.githubAppConnection, status: "failed", setupFlow: undefined,
+          flow_id: undefined, auth_url: undefined, expires_at: undefined, last_error: "Broker URL changed. Start a new setup flow." } : current.githubAppConnection });
+      if (expectedGeneration !== undefined) this.options.onStateChange();
+    });
+  }
+
+  private newTokenExchange(): InstallationTokenExchange {
+    return new InstallationTokenExchange(this.options.credentialStore, () => {
+      const settings = this.options.manifestStore.getSettings();
+      const state = settings.githubAppConnection;
+      return { mode: settings.connectionMode === "broker" ? "github-app" : "pat", connected: state.status === "connected" && state.session?.status === "active",
+        brokerBaseUrl: state.connection?.brokerBaseUrl ?? "", connectionId: state.connection?.connection_id ?? "",
+        installationId: state.connection?.installation.id ?? "", deviceSessionId: state.device?.device_session_id ?? state.device_session_id ?? "",
+        generation: this.lifecycle.generation };
+    });
+  }
 
   async connect(): Promise<void> {
+    await this.lifecycle.run(() => this.connectInternal());
+  }
+  private async connectInternal(): Promise<void> {
     let settings = this.options.manifestStore.getSettings();
     if (settings.githubAppConnection.status === "connected") {
       new Notice("GitHub is already connected.");
@@ -108,6 +188,9 @@ export class GitHubConnectionController {
   }
 
   async reauthorizeDevice(): Promise<void> {
+    await this.lifecycle.run(() => this.reauthorizeDeviceInternal());
+  }
+  private async reauthorizeDeviceInternal(): Promise<void> {
     this.stopPolling();
     const settings = this.options.manifestStore.getSettings();
     const connection = settings.githubAppConnection.connection;
@@ -171,6 +254,9 @@ export class GitHubConnectionController {
   }
 
   async disconnect(): Promise<void> {
+    await this.lifecycle.run(() => this.disconnectInternal());
+  }
+  private async disconnectInternal(): Promise<void> {
     this.stopPolling();
     const settings = this.options.manifestStore.getSettings();
     const connection = settings.githubAppConnection.connection;
@@ -230,6 +316,9 @@ export class GitHubConnectionController {
   }
 
   async clearPending(): Promise<void> {
+    await this.lifecycle.run(() => this.clearPendingInternal());
+  }
+  private async clearPendingInternal(): Promise<void> {
     const status = this.options.manifestStore.getSettings().githubAppConnection.status;
     if (status !== "pending" && status !== "expired" && status !== "failed") {
       new Notice("There is no pending GitHub connection to clear.");
@@ -265,7 +354,7 @@ export class GitHubConnectionController {
   }
 
   async refreshStored(options: { showNotice?: boolean } = { showNotice: true }): Promise<void> {
-    await this.verifyStored(options);
+    await this.lifecycle.run(async () => { await this.verifyStored(options); });
   }
 
   reopenUrl(): void {
@@ -299,6 +388,9 @@ export class GitHubConnectionController {
   }
 
   async refreshPending(options: { showNotice?: boolean; force?: boolean } = {}): Promise<void> {
+    await this.lifecycle.run(() => this.refreshPendingInternal(options));
+  }
+  private async refreshPendingInternal(options: { showNotice?: boolean; force?: boolean }): Promise<void> {
     const connection = this.options.manifestStore.getSettings().githubAppConnection;
     const setupFlow = currentSetupFlow(connection);
     const flowId = setupFlow?.flow_id;
@@ -323,7 +415,7 @@ export class GitHubConnectionController {
 
     if (!options.force && !shouldRefreshPendingConnection(connection)) return;
 
-    await this.poll(flowId, expiresAt);
+    await this.pollInternal(flowId, expiresAt);
 
     if (options.showNotice && this.options.manifestStore.getSettings().githubAppConnection.status === "pending") {
       new Notice("GitHub connection is still pending.");
@@ -331,6 +423,9 @@ export class GitHubConnectionController {
   }
 
   resumePending(): void {
+    void this.lifecycle.run(async () => this.resumePendingInternal()).catch(() => undefined);
+  }
+  private resumePendingInternal(): void {
     const connection = this.options.manifestStore.getSettings().githubAppConnection;
     const setupFlow = currentSetupFlow(connection);
     const flowId = setupFlow?.flow_id;
@@ -364,13 +459,18 @@ export class GitHubConnectionController {
     if (this.suspended || this.options.manifestStore.getSettings().connectionMode === "pat") return;
     this.stopPolling();
     const intervalMs = Math.max(1, pollIntervalSeconds) * 1000;
-    const poll = () => void this.poll(flowId, expiresAt);
+    const poll = () => void this.poll(flowId, expiresAt).catch(() => undefined);
     poll();
     this.activeConnectionPoll = window.setInterval(poll, intervalMs);
     this.options.registerInterval(this.activeConnectionPoll);
   }
 
   private async poll(flowId: string, expiresAt: string): Promise<void> {
+    await this.lifecycle.run(() => this.pollInternal(flowId, expiresAt));
+  }
+  private async pollInternal(flowId: string, expiresAt: string): Promise<void> {
+    const current = this.options.manifestStore.getSettings().githubAppConnection;
+    if (current.status !== "pending" || currentSetupFlow(current)?.flow_id !== flowId) return;
     if (isTimestampExpiredOrInvalid(expiresAt)) {
       this.stopPolling();
       await this.updateState({
@@ -468,6 +568,7 @@ export class GitHubConnectionController {
           last_error: undefined,
           last_status_result: status.status,
         });
+        this.tokenExchange = this.newTokenExchange();
         new Notice("GitHub connected.", 8000);
         return;
       }
@@ -549,6 +650,11 @@ export class GitHubConnectionController {
         return false;
       }
 
+      if ((connection?.connection_id && verification.connection_id !== connection.connection_id) ||
+          (connection?.installation.id && String(verification.installation_id) !== connection.installation.id) ||
+          (verification.device_session_id && verification.device_session_id !== deviceSessionId)) {
+        throw new Error("GitHub connection verification returned mismatched identity. Reauthorize this device.");
+      }
       if (verification.broker_grant) await this.options.credentialStore.set(GITHUB_BROKER_GRANT_CREDENTIAL, verification.broker_grant);
       await this.updateState({
         status: "connected",
@@ -582,7 +688,9 @@ export class GitHubConnectionController {
         }, connection?.brokerBaseUrl ?? settings.authBrokerBaseUrl, verification.device_session_id ?? deviceSessionId),
       });
 
+      this.tokenExchange = this.newTokenExchange();
       if (options.showNotice) new Notice("GitHub connection verified.");
+      this.stopPolling();
       return true;
     } catch (error) {
       const message = error instanceof Error ? error.message : "GitHub connection verification failed.";
@@ -610,12 +718,12 @@ export class GitHubConnectionController {
 
   private createClient(baseUrl: string): BrokerAuthClient {
     return new BrokerAuthClient(baseUrl, this.options.isDevelopmentBuild(), async (params) => {
-      if (this.suspended || this.options.manifestStore.getSettings().connectionMode === "pat") throw new Error("Broker requests are disabled in PAT mode or while switching connection method.");
+      if ((this.suspended && !this.lifecycle.running) || this.options.manifestStore.getSettings().connectionMode === "pat") throw new Error("Broker requests are disabled in PAT mode or while switching connection method.");
       const request = requestUrl(params);
       this.requests.add(request);
       try {
         const response = await request;
-        if (this.suspended || this.options.manifestStore.getSettings().connectionMode === "pat") throw new Error("Broker result discarded during connection method switch.");
+        if ((this.suspended && !this.lifecycle.running) || this.options.manifestStore.getSettings().connectionMode === "pat") throw new Error("Broker result discarded during connection method switch.");
         return response;
       } finally { this.requests.delete(request); }
     });
