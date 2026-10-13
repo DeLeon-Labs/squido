@@ -36,7 +36,7 @@ A destination is a named publishing target. At a high level it contains:
 
 Destinations belong to connections. One GitHub connection may expose multiple repositories, and Squido may define multiple destinations from that connection.
 
-The current alpha has one implicit destination made from settings fields. The connection integration milestone should keep that single implicit destination behavior while replacing manual-only setup with broker-backed connection and picker UI. The Destination-Based Publishing MVP should later turn the implicit configuration into an explicit destination model without breaking existing alpha users.
+The current alpha has one implicit destination made from settings fields. The PAT picker and exact-path contract are documented in [destination-picker-validation.md](destination-picker-validation.md); GitHub App discovery remains explicitly unavailable pending authorized installation-token integration. The connection integration milestone should keep that single implicit destination behavior while replacing manual-only setup with broker-backed connection and picker UI. The Destination-Based Publishing MVP should later turn the implicit configuration into an explicit destination model without breaking existing alpha users.
 
 GitHub import is the companion workflow for destinations that already contain Markdown. See [github-import-workflow.md](github-import-workflow.md).
 

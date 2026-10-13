@@ -1,9 +1,11 @@
 import { Notice, Plugin, TFile } from "obsidian";
 import { GitHubConnectionController } from "./auth/githubConnection";
-import { PluginDataCredentialStore } from "./credentials/pluginDataCredentialStore";
+import { SecretStorageCredentialStore } from "./credentials/secretStorageCredentialStore";
+import { GITHUB_PAT_CREDENTIAL } from "./credentials/credentialStore";
 import { loadBuildInfo } from "./diagnostics/buildInfo";
 import { FileEventHandler } from "./fileEvents";
 import { GitHubClient } from "./githubClient";
+import { DestinationDiscovery } from "./destinationDiscovery";
 import { ManifestStore } from "./storage/manifestStore";
 import { commitMessageFor, Publisher } from "./publisher";
 import { SquidoSettingTab } from "./settings/settingsTab";
@@ -11,8 +13,11 @@ import { PublishStatusService } from "./status";
 import type { BuildInfo, BuildInfoDiagnostics, SquidoData, SquidoSettings } from "./types";
 import { PublishModal } from "./ui/PublishModal";
 import { SquidoStatusBar } from "./ui/StatusBar";
+import { SETUP_VIEW_TYPE, SetupView } from "./ui/SetupView";
+import type { ConnectionMode } from "./types";
 
 export default class SquidoPlugin extends Plugin {
+  private credentialStore!: SecretStorageCredentialStore;
   private manifestStore!: ManifestStore;
   private publisher!: Publisher;
   private statusService!: PublishStatusService;
@@ -29,11 +34,18 @@ export default class SquidoPlugin extends Plugin {
       (data: SquidoData) => this.saveData(data),
     );
     await this.manifestStore.initialize();
+    this.credentialStore = new SecretStorageCredentialStore(this.manifestStore, this.app.secretStorage);
+    try {
+      await this.credentialStore.migrateLegacy();
+    } catch {
+      new Notice("Squido could not migrate or access SecretStorage. Publishing and connection setup are disabled; legacy credentials were not erased. Check this device's secrets and reload Squido.", 12000);
+      throw new Error("Squido SecretStorage initialization failed.");
+    }
     const buildInfoResult = await loadBuildInfo(this.app, this.manifest.dir);
     this.buildInfo = buildInfoResult.buildInfo;
     this.buildInfoDiagnostics = buildInfoResult.diagnostics;
 
-    const githubClient = new GitHubClient(() => this.manifestStore.getSettings().githubToken);
+    const githubClient = new GitHubClient(async () => await this.credentialStore.get(GITHUB_PAT_CREDENTIAL) ?? "");
     this.publisher = new Publisher(this.app.vault, this.manifestStore, githubClient);
     this.statusService = new PublishStatusService(this.app.vault, this.manifestStore);
     this.statusBar = new SquidoStatusBar(this.addStatusBarItem());
@@ -45,14 +57,22 @@ export default class SquidoPlugin extends Plugin {
     );
     this.githubConnection = new GitHubConnectionController({
       manifestStore: this.manifestStore,
-      credentialStore: new PluginDataCredentialStore(this.manifestStore),
+      credentialStore: this.credentialStore,
       pluginVersion: this.manifest.version,
       isDevelopmentBuild: () => this.isDevelopmentBuild(),
       registerInterval: (id) => this.registerInterval(id),
-      onStateChange: () => this.connectionStateChangeHandler?.(),
+      onStateChange: () => {
+        this.connectionStateChangeHandler?.();
+        for (const leaf of this.app.workspace.getLeavesOfType(SETUP_VIEW_TYPE)) {
+          if (leaf.view instanceof SetupView) leaf.view.render();
+        }
+      },
     });
 
     this.addSettingTab(new SquidoSettingTab(this.app, this));
+    this.registerView(SETUP_VIEW_TYPE, (leaf) => new SetupView(leaf, this));
+    this.addCommand({ id: "open-setup", name: "Open Welcome / Setup", callback: () => void this.openSetup() });
+    if (!this.getSettings().setupSelectionMade) this.app.workspace.onLayoutReady(() => void this.openSetup());
     this.addCommand({
       id: "publish-current-note",
       name: "Publish current note",
@@ -64,27 +84,60 @@ export default class SquidoPlugin extends Plugin {
     });
     this.addRibbonIcon("upload", "Publish current note", () => void this.publishCurrentNote());
     this.registerEvent(this.app.workspace.on("active-leaf-change", () => void this.refreshStatus()));
-    this.registerDomEvent(window, "focus", () => void this.githubConnection.refreshPending());
+    this.registerDomEvent(window, "focus", () => {
+      if (this.brokerEnabled()) void this.githubConnection.refreshPending().catch(() => undefined);
+    });
     this.registerDomEvent(document, "visibilitychange", () => {
-      if (document.visibilityState === "visible") void this.githubConnection.refreshPending();
+      if (document.visibilityState === "visible" && this.brokerEnabled()) void this.githubConnection.refreshPending().catch(() => undefined);
     });
     this.fileEvents.start();
-    void this.githubConnection.refreshStored({ showNotice: false });
-    this.githubConnection.resumePending();
+    if (this.brokerEnabled()) {
+      void this.githubConnection.refreshStored({ showNotice: false }).catch(() => undefined);
+      this.githubConnection.resumePending();
+    }
     await this.refreshStatus();
   }
 
   onunload(): void {
-    this.githubConnection.stopPolling();
-    this.fileEvents.stop();
+    void this.githubConnection?.quiesce();
+    this.fileEvents?.stop();
   }
 
   getSettings(): SquidoSettings {
     return this.manifestStore.getSettings();
   }
 
-  async updateSettings(settings: SquidoSettings): Promise<void> {
-    await this.manifestStore.updateSettings(settings);
+  getDestinationDiscovery(): DestinationDiscovery {
+    return new DestinationDiscovery(() => this.getSettings().connectionMode,
+      () => this.credentialStore.get(GITHUB_PAT_CREDENTIAL), undefined,
+      { available: () => this.githubConnection.repositoryDiscoveryAvailable(), repositories: () => this.githubConnection.discoverRepositories() });
+  }
+
+  getAuthGeneration(): number { return this.githubConnection.authGeneration; }
+
+  async updateSettings(settings: SquidoSettings, expectedGeneration?: number): Promise<void> {
+    await this.githubConnection.updateUserSettings(settings, expectedGeneration);
+  }
+
+  async saveGitHubPat(value: string): Promise<void> {
+    await this.githubConnection.coordinateLocalChange(() => this.credentialStore.set(GITHUB_PAT_CREDENTIAL, value.trim()));
+  }
+
+  async forgetGitHubPat(): Promise<void> {
+    await this.githubConnection.coordinateLocalChange(() => this.credentialStore.delete(GITHUB_PAT_CREDENTIAL));
+  }
+
+  private brokerEnabled(): boolean { return this.getSettings().connectionMode === "broker"; }
+
+  async selectConnectionMode(mode: ConnectionMode): Promise<void> {
+    if (mode !== "broker" && mode !== "pat") throw new Error("Invalid connection mode.");
+    await this.githubConnection.selectConnectionMode(mode);
+  }
+
+  async openSetup(): Promise<void> {
+    const leaf = this.app.workspace.getLeavesOfType(SETUP_VIEW_TYPE)[0] ?? this.app.workspace.getLeaf("tab");
+    await leaf.setViewState({ type: SETUP_VIEW_TYPE, active: true });
+    await this.app.workspace.revealLeaf(leaf);
   }
 
   getBuildInfo(): BuildInfo | null {
@@ -100,34 +153,42 @@ export default class SquidoPlugin extends Plugin {
   }
 
   async connectGitHub(): Promise<void> {
+    if (!this.brokerEnabled()) return;
     await this.githubConnection.connect();
   }
 
   async disconnectGitHub(): Promise<void> {
+    if (!this.brokerEnabled()) return;
     await this.githubConnection.disconnect();
   }
 
   async reauthorizeGitHubDevice(): Promise<void> {
+    if (!this.brokerEnabled()) return;
     await this.githubConnection.reauthorizeDevice();
   }
 
   async clearPendingGitHubConnection(): Promise<void> {
+    if (!this.brokerEnabled()) return;
     await this.githubConnection.clearPending();
   }
 
   async refreshGitHubConnectionStatus(options: { showNotice?: boolean } = { showNotice: true }): Promise<void> {
+    if (!this.brokerEnabled()) return;
     await this.githubConnection.refreshStatus(options);
   }
 
   async refreshStoredGitHubConnection(options: { showNotice?: boolean } = { showNotice: true }): Promise<void> {
+    if (!this.brokerEnabled()) return;
     await this.githubConnection.refreshStored(options);
   }
 
   reopenGitHubConnectionUrl(): void {
+    if (!this.brokerEnabled()) return;
     this.githubConnection.reopenUrl();
   }
 
   manageGitHubAccess(): void {
+    if (!this.brokerEnabled()) return;
     this.githubConnection.manageAccess();
   }
 
